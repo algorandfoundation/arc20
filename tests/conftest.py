@@ -235,7 +235,7 @@ def opted_in_account_factory(
 
 @pytest.fixture(scope="function")
 def receiver(
-    opted_in_account_factory: Callable[..., AddressAndSigner]
+    opted_in_account_factory: Callable[..., AddressAndSigner],
 ) -> AddressAndSigner:
     return opted_in_account_factory()
 
