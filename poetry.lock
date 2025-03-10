@@ -1656,13 +1656,13 @@ files = [
 
 [[package]]
 name = "puyapy"
-version = "4.3.1"
+version = "4.4.4"
 description = "An optimising compiler for Algorand Python"
 optional = false
 python-versions = "<4.0,>=3.12"
 groups = ["dev"]
 files = [
-    {file = "puyapy-4.3.1-py3-none-any.whl", hash = "sha256:1e5905df14fb259461e8f42759f7be7c6215a6ce38c469111ca4db402ed51a19"},
+    {file = "puyapy-4.4.4-py3-none-any.whl", hash = "sha256:743bf8bf10189f4254b8feed78b6e378dc36422857e2af771bfcf26954cb6aa5"},
 ]
 
 [package.dependencies]
@@ -2366,4 +2366,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "053ea7d66ea84e53ded82c4c9ce22b770168f91b8d7a31628455dd35c8283e02"
+content-hash = "fa3c4bacd74dcac4af08740187f35d2547b666a7489414372ce99b71c1eba721"
