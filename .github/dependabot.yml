@@ -1,14 +1,21 @@
 version: 2
-
 updates:
   - package-ecosystem: pip
     directory: "/"
     schedule:
       interval: "monthly"
-    target-branch: "dependabot/pip"
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
 
-  - package-ecosystem: "github-actions"
+  - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: "monthly"
-    target-branch: "dependabot/gh-actions"
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
