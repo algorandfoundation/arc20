@@ -42,9 +42,9 @@ def test_pass_asset_config(
     assert state.total == ASA_CONFIG.total
     assert state.decimals == ASA_CONFIG.decimals
     assert state.default_frozen == ASA_CONFIG.default_frozen
-    assert state.unit_name.decode() == ASA_CONFIG.unit_name
-    assert state.name.decode() == ASA_CONFIG.name
-    assert state.url.decode() == ASA_CONFIG.url
+    assert state.unit_name == ASA_CONFIG.unit_name
+    assert state.name == ASA_CONFIG.name
+    assert state.url == ASA_CONFIG.url
     assert state.metadata_hash == ASA_CONFIG.metadata_hash
     assert encode_address(state.manager_addr) == ASA_CONFIG.manager_addr
     assert encode_address(state.reserve_addr) == ASA_CONFIG.reserve_addr

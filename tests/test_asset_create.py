@@ -43,9 +43,9 @@ def test_pass_asset_create(
     assert state.total == asa_config.total
     assert state.decimals == asa_config.decimals
     assert state.default_frozen == asa_config.default_frozen
-    assert state.unit_name.decode() == asa_config.unit_name
-    assert state.name.decode() == asa_config.name
-    assert state.url.decode() == asa_config.url
+    assert state.unit_name == asa_config.unit_name
+    assert state.name == asa_config.name
+    assert state.url == asa_config.url
     assert state.metadata_hash == asa_config.metadata_hash
     assert encode_address(state.manager_addr) == asa_config.manager_addr
     assert encode_address(state.reserve_addr) == asa_config.reserve_addr
