@@ -6,7 +6,6 @@ from algokit_utils import (
     CommonAppCallParams,
     SigningAccount,
 )
-from algosdk.atomic_transaction_composer import TransactionWithSigner
 
 from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     AssetCloseOutArgs,
@@ -34,7 +33,7 @@ def test_pass_regular_close_out(
     sp = smart_asa_client.algorand.client.algod.suggested_params()
     sp.flat_fee = True
     sp.fee = sp.min_fee * 2
-    close_out = smart_asa_client.compose().close_out_asset_close_out(
+    close_out = smart_asa_client.new_group().close_out.asset_close_out(
         AssetCloseOutArgs(
             close_asset=smart_asa_id,
             close_to=receiver.address,
@@ -45,30 +44,25 @@ def test_pass_regular_close_out(
             sender=account_with_supply.address,
         ),
     )
-    close_out.atc.add_transaction(
-        TransactionWithSigner(
-            txn=algorand.create_transaction.asset_transfer(
-                AssetTransferParams(
-                    sender=account_with_supply.address,
-                    asset_id=smart_asa_id,
-                    receiver=smart_asa_client.app_address,
-                    close_asset_to=smart_asa_client.app_address,
-                    amount=0,
-                )
-            ),
-            signer=account_with_supply.signer,
-        )
+    close_out.add_transaction(
+        txn=algorand.create_transaction.asset_transfer(
+            AssetTransferParams(
+                sender=account_with_supply.address,
+                asset_id=smart_asa_id,
+                receiver=smart_asa_client.app_address,
+                close_asset_to=smart_asa_client.app_address,
+                amount=0,
+            )
+        ),
+        signer=account_with_supply.signer,
     )
-    close_out.atc.submit(algorand.client.algod)
+    close_out.send()
     receiver_asset_balance = algorand.asset.get_account_information(
         receiver, smart_asa_id
     ).balance
-    assert not algorand.asset.get_account_information(
-        account_with_supply, smart_asa_id
-    ).balance
-    # assert not utils.is_account_opted_in(
-    #     algorand_client.client.algod, account_with_supply.address, account_with_supply
-    # )
+    assert (
+        smart_asa_id not in algorand.account.get_information(account_with_supply.address).assets
+    )
     assert receiver_asset_balance == smart_asa.total
 
 
