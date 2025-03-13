@@ -738,7 +738,7 @@ asset_create_after_while@4:
     select
     // smart_contracts/smart_asa/contract.py:199
     // url=cfg.APP_BINDING + self.itoa(Global.current_application_id.id),
-    pushbytes 0x736d6172742d6173612d6170702d69643a
+    pushbytes 0x616c676f72616e643a2f2f6170702f
     swap
     concat
     // smart_contracts/smart_asa/contract.py:200
@@ -756,11 +756,11 @@ asset_create_after_while@4:
     itxn_field ConfigAssetURL
     // smart_contracts/smart_asa/contract.py:198
     // asset_name=cfg.NAME,
-    pushbytes "SMART-ASA"
+    pushbytes "ARC-20 Smart ASA"
     itxn_field ConfigAssetName
     // smart_contracts/smart_asa/contract.py:197
     // unit_name=cfg.UNIT_NAME,
-    pushbytes "S-ASA"
+    pushbytes "ARC-20"
     itxn_field ConfigAssetUnitName
     // smart_contracts/smart_asa/contract.py:196
     // default_frozen=cfg.DEFAULT_FROZEN,
