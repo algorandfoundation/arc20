@@ -1,7 +1,13 @@
 import logging
 from typing import Final
 
-import algokit_utils
+from algokit_utils import (
+    AlgoAmount,
+    AlgorandClient,
+    CommonAppCallParams,
+    OnSchemaBreak,
+    OnUpdate,
+)
 from algokit_utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -14,6 +20,8 @@ ASA_NAME: Final[str] = "ARC-20 Smart ASA"
 ASA_URL: Final[str] = "https://arc.algorand.foundation/ARCs/arc-0020"
 ASA_METADATA_HASH: Final[bytes] = (420).to_bytes(length=32)
 
+APP_FUNDS: Final[AlgoAmount] = AlgoAmount(algo=1)
+
 
 # define deployment behaviour based on supplied app spec
 def deploy() -> None:
@@ -24,7 +32,7 @@ def deploy() -> None:
 
     config.configure(debug=False)
 
-    algorand = algokit_utils.AlgorandClient.from_environment()
+    algorand = AlgorandClient.from_environment()
     deployer = algorand.account.from_environment("DEPLOYER")
 
     factory = algorand.client.get_typed_app_factory(
@@ -32,8 +40,13 @@ def deploy() -> None:
     )
 
     app_client, _ = factory.deploy(
-        on_schema_break=algokit_utils.OnSchemaBreak.AppendApp,
-        on_update=algokit_utils.OnUpdate.AppendApp,
+        on_schema_break=OnSchemaBreak.AppendApp,
+        on_update=OnUpdate.AppendApp,
+    )
+
+    algorand.account.ensure_funded_from_environment(
+        account_to_fund=app_client.app_address,
+        min_spending_balance=APP_FUNDS,
     )
 
     sp = app_client.algorand.client.algod.suggested_params()
@@ -54,7 +67,7 @@ def deploy() -> None:
             clawback_addr=deployer.address,
             freeze_addr=deployer.address,
         ),
-        params=algokit_utils.CommonAppCallParams(
-            static_fee=algokit_utils.AlgoAmount.from_micro_algo(sp.fee)  # type: ignore
+        params=CommonAppCallParams(
+            static_fee=AlgoAmount.from_micro_algo(sp.fee)  # type: ignore
         ),
     )
