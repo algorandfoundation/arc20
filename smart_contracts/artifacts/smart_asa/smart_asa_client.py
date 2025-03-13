@@ -1758,7 +1758,7 @@ class SmartAsaFactorySendCreate:
         return SmartAsaClient(result[0]), result[1]
 
 
-class _SmartAsaOpt_inComposer:
+class _SmartAsaOptInComposer:
     def __init__(self, composer: "SmartAsaComposer"):
         self.composer = composer
     def asset_opt_in(
@@ -1781,6 +1781,29 @@ class _SmartAsaOpt_inComposer:
         return self.composer
 
 
+class _SmartAsaCloseOutComposer:
+    def __init__(self, composer: "SmartAsaComposer"):
+        self.composer = composer
+    def asset_close_out(
+        self,
+        args: tuple[int, str | bytes] | AssetCloseOutArgs,
+        params: algokit_utils.CommonAppCallParams | None = None
+    ) -> "SmartAsaComposer":
+        self.composer._composer.add_app_call_method_call(
+            self.composer.client.params.close_out.asset_close_out(
+                args=args,
+                params=params,
+                
+            )
+        )
+        self.composer._result_mappers.append(
+            lambda v: self.composer.client.decode_return_value(
+                "asset_close_out(asset,account)void", v
+            )
+        )
+        return self.composer
+
+
 class SmartAsaComposer:
     """Composer for creating transaction groups for SmartAsa contract calls"""
 
@@ -1790,8 +1813,12 @@ class SmartAsaComposer:
         self._result_mappers: list[typing.Callable[[algokit_utils.ABIReturn | None], object] | None] = []
 
     @property
-    def opt_in(self) -> "_SmartAsaOpt_inComposer":
-        return _SmartAsaOpt_inComposer(self)
+    def opt_in(self) -> "_SmartAsaOptInComposer":
+        return _SmartAsaOptInComposer(self)
+
+    @property
+    def close_out(self) -> "_SmartAsaCloseOutComposer":
+        return _SmartAsaCloseOutComposer(self)
 
     def asset_create(
         self,
