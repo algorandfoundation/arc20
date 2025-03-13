@@ -61,7 +61,8 @@ def test_pass_regular_close_out(
         receiver, smart_asa_id
     ).balance
     assert (
-        smart_asa_id not in algorand.account.get_information(account_with_supply.address).assets
+        smart_asa_id
+        not in algorand.account.get_information(account_with_supply.address).assets
     )
     assert receiver_asset_balance == smart_asa.total
 
