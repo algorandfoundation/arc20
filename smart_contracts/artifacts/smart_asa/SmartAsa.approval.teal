@@ -17,7 +17,7 @@ main:
     // smart_contracts/smart_asa/contract.py:43
     // assert Txn.global_num_uint == cfg.GLOBAL_UINTS, err.WRONG_GLOBAL_UINTS
     txn GlobalNumUint
-    pushint 5 // 5
+    pushint 5
     ==
     assert // Wrong Global UInts allocation
     // smart_contracts/smart_asa/contract.py:44
@@ -28,7 +28,7 @@ main:
     // smart_contracts/smart_asa/contract.py:45
     // assert Txn.local_num_uint == cfg.LOCAL_UINTS, err.WRONG_LOCAL_UINTS
     txn LocalNumUint
-    pushint 2 // 2
+    pushint 2
     ==
     assert // Wrong Local UInts allocation
     // smart_contracts/smart_asa/contract.py:47-49
@@ -130,7 +130,7 @@ main_switch_case_next@7:
     // ):
     txn OnCompletion
     !
-    assert // OnCompletion must be NoOp
+    assert
     txn ApplicationID
     assert
     pushbytess 0xe7ecd5a8 0xf8819feb 0x7eacb775 0xa133d581 0xff53adef 0xed64452f 0x2e9b9038 0x979b9972 0x48a63cc9 0x46ad0d52 // method "asset_create(uint64,uint32,bool,string,string,string,byte[],address,address,address,address)uint64", method "asset_config(uint64,uint64,uint32,bool,string,string,string,byte[],address,address,address,address)void", method "asset_transfer(uint64,uint64,address,address)void", method "asset_freeze(uint64,bool)void", method "account_freeze(uint64,address,bool)void", method "asset_destroy(uint64)void", method "get_asset_config(uint64)(uint64,uint32,bool,string,string,string,byte[],address,address,address,address)", method "get_asset_is_frozen(uint64)bool", method "get_account_is_frozen(uint64,address)bool", method "get_circulating_supply(uint64)uint64"
@@ -146,7 +146,7 @@ main_asset_close_out_route@6:
     ==
     txn ApplicationID
     &&
-    assert // OnCompletion must be CloseOut && can only call when not creating
+    assert
     b asset_close_out
 
 main_asset_opt_in_route@5:
@@ -157,7 +157,7 @@ main_asset_opt_in_route@5:
     ==
     txn ApplicationID
     &&
-    assert // OnCompletion must be OptIn && can only call when not creating
+    assert
     b asset_opt_in
 
 main___algopy_default_create@22:
@@ -166,8 +166,6 @@ main___algopy_default_create@22:
     txn ApplicationID
     !
     &&
-    assert // OnCompletion must be NoOp && can only call when creating
-    intc_1 // 1
     return
 
 
@@ -184,7 +182,7 @@ asset_create:
     txna ApplicationArgs 2
     dup
     len
-    pushint 4 // 4
+    pushint 4
     ==
     assert // invalid number of bytes for arc4.uint32
     txna ApplicationArgs 3
@@ -197,7 +195,7 @@ asset_create:
     dupn 2
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    pushint 2 // 2
+    pushint 2
     +
     swap
     len
@@ -207,7 +205,7 @@ asset_create:
     dupn 2
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    pushint 2 // 2
+    pushint 2
     +
     swap
     len
@@ -217,7 +215,7 @@ asset_create:
     dupn 2
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    pushint 2 // 2
+    pushint 2
     +
     swap
     len
@@ -227,7 +225,7 @@ asset_create:
     dupn 2
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    pushint 2 // 2
+    pushint 2
     +
     swap
     len
@@ -304,7 +302,7 @@ asset_create_while_top@2:
     // acc = digits[n % 10] + acc
     dig 1
     dup
-    pushint 10 // 10
+    pushint 10
     %
     // smart_contracts/smart_asa/contract.py:71
     // digits = Bytes(b"0123456789")
@@ -319,7 +317,7 @@ asset_create_while_top@2:
     bury 2
     // smart_contracts/smart_asa/contract.py:75
     // n //= 10
-    pushint 10 // 10
+    pushint 10
     /
     bury 2
     b asset_create_while_top@2
@@ -659,7 +657,7 @@ asset_config:
     dup
     cover 2
     len
-    pushint 4 // 4
+    pushint 4
     ==
     assert // invalid number of bytes for arc4.uint32
     txna ApplicationArgs 4
@@ -675,7 +673,7 @@ asset_config:
     dup
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    pushint 2 // 2
+    pushint 2
     +
     swap
     len
@@ -687,7 +685,7 @@ asset_config:
     dup
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    pushint 2 // 2
+    pushint 2
     +
     swap
     len
@@ -699,7 +697,7 @@ asset_config:
     dup
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    pushint 2 // 2
+    pushint 2
     +
     swap
     len
@@ -711,7 +709,7 @@ asset_config:
     dup
     intc_0 // 0
     extract_uint16 // on error: invalid array length header
-    pushint 2 // 2
+    pushint 2
     +
     swap
     len
@@ -1852,7 +1850,7 @@ get_asset_config:
     concat
     dig 8
     len
-    pushint 149 // 149
+    pushint 149
     +
     dup
     itob
