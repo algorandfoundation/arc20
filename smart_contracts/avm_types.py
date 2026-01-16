@@ -1,17 +1,17 @@
-from algopy import arc4
+from algopy import Account, Bytes, String, Struct, UInt64, arc4
 
 
-class AssetConfig(arc4.Struct, kw_only=True):
+class AssetConfig(Struct, kw_only=True):
     """Smart ASA Configuration"""
 
-    total: arc4.UInt64
+    total: UInt64
     decimals: arc4.UInt32
-    default_frozen: arc4.Bool
-    unit_name: arc4.String
-    name: arc4.String
-    url: arc4.String
-    metadata_hash: arc4.DynamicBytes
-    manager_addr: arc4.Address
-    reserve_addr: arc4.Address
-    freeze_addr: arc4.Address
-    clawback_addr: arc4.Address
+    default_frozen: bool
+    unit_name: String
+    name: String
+    url: String
+    metadata_hash: Bytes
+    manager_addr: Account
+    reserve_addr: Account
+    freeze_addr: Account
+    clawback_addr: Account

@@ -37,8 +37,8 @@ class ASAConfig:
     default_frozen: bool = False
     unit_name: str = "TST"
     name: str = "Test"
-    url: str = "ipfs://..."
-    metadata_hash: bytes = b"SmartASA"
+    url: str = "algorand://..."
+    metadata_hash: bytes = 32 * b"\x00"
 
     def dictify(self) -> dict:
         return asdict(self)  # type: ignore
