@@ -7,6 +7,7 @@ from algopy import (
     OnCompleteAction,
     StateTotals,
     String,
+    TemplateVar,
     TransactionType,
     Txn,
     UInt64,
@@ -18,11 +19,13 @@ from algopy import (
 from smart_contracts import errors as err
 from smart_contracts.arc20_interface import Arc20Interface
 from smart_contracts.avm_library import (
+    arc90_box_query,
     inner_asset_config,
     inner_asset_destroy,
     inner_asset_transfer,
 )
 from smart_contracts.avm_types import AssetConfig
+from smart_contracts.template_vars import ARC89_APP_ID
 
 from . import config as cfg
 
@@ -171,6 +174,33 @@ class SmartAsa(
         assert not self.account_frozen[Txn.sender], err.SENDER_FROZEN
         assert not self.account_frozen[close_to], err.CLOSE_TO_FROZEN
 
+    def _configure_smart_asa(
+        self,
+        *,
+        total: UInt64,
+        decimals: UInt64,
+        default_frozen: bool,
+        unit_name: String,
+        name: String,
+        url: String,
+        metadata_hash: Bytes,
+        manager_addr: Account,
+        reserve_addr: Account,
+        freeze_addr: Account,
+        clawback_addr: Account,
+    ) -> None:
+        self.total = total
+        self.decimals = decimals
+        self.default_frozen = default_frozen
+        self.unit_name = unit_name
+        self.name = name
+        self.url = url
+        self.metadata_hash = metadata_hash
+        self.manager_addr = manager_addr
+        self.reserve_addr = reserve_addr
+        self.freeze_addr = freeze_addr
+        self.clawback_addr = clawback_addr
+
     @arc4.abimethod
     def asset_create(
         self,
@@ -220,25 +250,29 @@ class SmartAsa(
             default_frozen=cfg.DEFAULT_FROZEN,
             unit_name=String(cfg.UNIT_NAME),
             name=String(cfg.NAME),
-            url=String(cfg.URL),
+            url=String.from_bytes(
+                arc90_box_query(TemplateVar[UInt64](ARC89_APP_ID), Bytes())
+            ),
             manager=Global.current_application_address,
             reserve=Global.current_application_address,
             freeze=Global.current_application_address,
             clawback=Global.current_application_address,
         )
 
-        # Configure the Smart ASA
-        self.total = total
-        self.decimals = decimals.as_uint64()
-        self.default_frozen = default_frozen
-        self.unit_name = unit_name
-        self.name = name
-        self.url = url
-        self.metadata_hash = metadata_hash
-        self.manager_addr = manager_addr
-        self.reserve_addr = reserve_addr
-        self.freeze_addr = freeze_addr
-        self.clawback_addr = clawback_addr
+        # Configure Smart ASA
+        self._configure_smart_asa(
+            total=total,
+            decimals=decimals.as_uint64(),
+            default_frozen=default_frozen,
+            unit_name=unit_name,
+            name=name,
+            url=url,
+            metadata_hash=metadata_hash,
+            manager_addr=manager_addr,
+            reserve_addr=reserve_addr,
+            freeze_addr=freeze_addr,
+            clawback_addr=clawback_addr,
+        )
 
         return self.smart_asa_id
 
@@ -327,18 +361,20 @@ class SmartAsa(
             assert self.clawback_addr != Global.zero_address, err.DISABLED_CLAWBACK
         assert total >= self._circulating_supply(config_asset), err.INVALID_TOTAL
 
-        # Effects
-        self.total = total
-        self.decimals = decimals.as_uint64()
-        self.default_frozen = default_frozen
-        self.unit_name = unit_name
-        self.name = name
-        self.url = url
-        self.metadata_hash = metadata_hash
-        self.manager_addr = manager_addr
-        self.reserve_addr = reserve_addr
-        self.freeze_addr = freeze_addr
-        self.clawback_addr = clawback_addr
+        # Configure Smart ASA
+        self._configure_smart_asa(
+            total=total,
+            decimals=decimals.as_uint64(),
+            default_frozen=default_frozen,
+            unit_name=unit_name,
+            name=name,
+            url=url,
+            metadata_hash=metadata_hash,
+            manager_addr=manager_addr,
+            reserve_addr=reserve_addr,
+            freeze_addr=freeze_addr,
+            clawback_addr=clawback_addr,
+        )
 
     @arc4.abimethod
     def asset_transfer(

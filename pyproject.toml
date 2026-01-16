@@ -1,14 +1,14 @@
 [tool.poetry]
 package-mode = false
-name = "arc-20"
+name = "smart-asa"
 version = "0.1.0"
-description = "Smart ASA reference implementation"
+description = "Smart ASA (ARC-20) reference implementation"
 license = "MIT"
 authors = ["cusma <cosimo.bassi@algorand.foundation>"]
 maintainers = ["cusma <cosimo.bassi@gmail.com>"]
 readme = ["README.md"]
 documentation = "https://arc.algorand.foundation/ARCs/arc-0020"
-# repository = ...
+repository = "https://github.com/cusma/arc-20"
 keywords = ["algorand", "blockchain", "tokenization"]
 
 [tool.poetry.dependencies]
@@ -16,6 +16,7 @@ python = "^3.12"
 algokit-utils = "^4.2.3"
 python-dotenv = "^1.2.1"
 algorand-python = "^3.3.0"
+asa-metadata-registry = { git = "https://github.com/algorandfoundation/arc89.git", branch = "main" }
 
 [tool.poetry.group.dev.dependencies]
 algokit-client-generator = "^2.2.0"

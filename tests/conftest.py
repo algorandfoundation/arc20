@@ -6,6 +6,7 @@ import pytest
 from algokit_utils import (
     AlgoAmount,
     AlgorandClient,
+    AppClientCompilationParams,
     AssetCreateParams,
     AssetOptInParams,
     CommonAppCallParams,
@@ -22,12 +23,14 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaClient,
     SmartAsaFactory,
 )
+from smart_contracts.template_vars import ARC89_APP_ID, ARC90_NETAUTH
 
 INITIAL_FUNDS: Final[AlgoAmount] = AlgoAmount.from_algo(100)
+ASA_METADATA_REGISTRY_ID: Final[int] = 42
 
 
 @dataclass
-class ASAConfig:
+class SmartASAConfig:
     manager_addr: str
     reserve_addr: str
     freeze_addr: str
@@ -38,7 +41,7 @@ class ASAConfig:
     unit_name: str = "TST"
     name: str = "Test"
     url: str = "algorand://..."
-    metadata_hash: bytes = 32 * b"\x00"
+    metadata_hash: bytes = (420).to_bytes(length=32)
 
     def dictify(self) -> dict:
         return asdict(self)  # type: ignore
@@ -131,7 +134,12 @@ def smart_asa_client_no_asset(
     factory = algorand.client.get_typed_app_factory(
         SmartAsaFactory,
         default_sender=creator.address,
-        default_signer=creator.signer,
+        compilation_params=AppClientCompilationParams(
+            deploy_time_params={
+                ARC89_APP_ID: ASA_METADATA_REGISTRY_ID,
+                ARC90_NETAUTH: "net:" + algorand.client.network().genesis_id,
+            }
+        ),
     )
     client, _ = factory.send.create.bare()
     algorand.account.ensure_funded_from_environment(
@@ -150,8 +158,8 @@ def asa_config(
     freeze: SigningAccount,
     clawback: SigningAccount,
     request,  # noqa: ANN001
-) -> ASAConfig:
-    return ASAConfig(
+) -> SmartASAConfig:
+    return SmartASAConfig(
         manager_addr=manager.address,
         reserve_addr=reserve.address,
         freeze_addr=freeze.address,
@@ -163,7 +171,7 @@ def asa_config(
 @pytest.fixture(scope="function")
 def smart_asa_client(
     smart_asa_client_no_asset: SmartAsaClient,
-    asa_config: ASAConfig,
+    asa_config: SmartASAConfig,
 ) -> SmartAsaClient:
     sp = smart_asa_client_no_asset.algorand.client.algod.suggested_params()
     sp.flat_fee = True
@@ -219,7 +227,7 @@ def receiver(
 def reserve_and_clawback(
     manager: SigningAccount,
     reserve: SigningAccount,
-    asa_config: ASAConfig,
+    asa_config: SmartASAConfig,
     smart_asa_client: SmartAsaClient,
 ) -> SigningAccount:
     asa_config.clawback_addr = asa_config.reserve_addr
