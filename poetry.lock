@@ -231,6 +231,25 @@ typing_extensions = {version = ">=4.5", markers = "python_version < \"3.13\""}
 trio = ["trio (>=0.31.0) ; python_version < \"3.10\"", "trio (>=0.32.0) ; python_version >= \"3.10\""]
 
 [[package]]
+name = "asa-metadata-registry"
+version = "0.7.0"
+description = "ASA Metadata Registry (ARC-89) reference implementation and SDK"
+optional = false
+python-versions = ">=3.10,<4"
+groups = ["main"]
+files = []
+develop = false
+
+[package.dependencies]
+algokit-utils = ">=4.2.3,<5.0.0"
+
+[package.source]
+type = "git"
+url = "https://github.com/algorandfoundation/arc89.git"
+reference = "main"
+resolved_reference = "fe119a29f3aeda3d307144732f918207da4a872b"
+
+[[package]]
 name = "attrs"
 version = "25.4.0"
 description = "Classes Without Boilerplate"
@@ -2687,4 +2706,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "b2e3e54393560ae6354cdca65d374b2102a07aaf088d5297faf93c7dba9a57f4"
+content-hash = "7214a4f099e6471f803155465f00f618f7fe481d4e7f7bdcf264d7dcaa9bd709"
