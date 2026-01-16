@@ -12,4 +12,7 @@ DECIMALS: Final[int] = 0
 DEFAULT_FROZEN: Final[bool] = True
 UNIT_NAME: Final[str] = "ARC-20"
 NAME: Final[str] = "ARC-20 Smart ASA"
-APP_BINDING: Final[bytes] = b"algorand://app/"
+URL: Final[str] = "algorand://"  # TODO: ASA Metadata Registry URI
+
+# Smart ASA
+METADATA_HASH_LENGTH: Final[int] = 32
