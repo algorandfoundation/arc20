@@ -33,9 +33,7 @@ def test_pass_asset_create(
     assert ctrl_asset.default_frozen
     assert ctrl_asset.unit_name == cfg.UNIT_NAME
     assert ctrl_asset.asset_name == cfg.NAME
-    assert ctrl_asset.url == cfg.APP_BINDING.decode() + str(
-        smart_asa_client_no_asset.app_id
-    )
+    assert ctrl_asset.url == cfg.URL
 
     # Verify Smart ASA
     state = smart_asa_client_no_asset.state.global_state
