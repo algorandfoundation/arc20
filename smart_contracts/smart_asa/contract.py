@@ -1,6 +1,5 @@
 from algopy import (
     Account,
-    ARC4Contract,
     Asset,
     Bytes,
     Global,
@@ -13,19 +12,23 @@ from algopy import (
     UInt64,
     arc4,
     gtxn,
-    itxn,
     op,
-    subroutine,
 )
 
 from smart_contracts import errors as err
+from smart_contracts.arc20_interface import Arc20Interface
+from smart_contracts.avm_library import (
+    inner_asset_config,
+    inner_asset_destroy,
+    inner_asset_transfer,
+)
 from smart_contracts.avm_types import AssetConfig
 
 from . import config as cfg
 
 
 class SmartAsa(
-    ARC4Contract,
+    Arc20Interface,
     state_totals=StateTotals(
         global_bytes=cfg.GLOBAL_BYTES,
         global_uints=cfg.GLOBAL_UINTS,
@@ -66,26 +69,14 @@ class SmartAsa(
         self.account_smart_asa_id = LocalState(UInt64)
         self.account_frozen = LocalState(bool)
 
-    @subroutine
-    def itoa(self, n: UInt64) -> Bytes:
-        digits = Bytes(b"0123456789")
-        acc = Bytes()
-        while n > 0:
-            acc = digits[n % 10] + acc
-            n //= 10
-        return acc or Bytes(b"0")
-
-    @subroutine
-    def circulating_supply(self, ctrl_asset: Asset) -> UInt64:
+    def _circulating_supply(self, ctrl_asset: Asset) -> UInt64:
         return cfg.TOTAL - ctrl_asset.balance(Global.current_application_address)
 
-    @subroutine
-    def assert_common_preconditions(self, asset_id: UInt64) -> None:
+    def _assert_common_preconditions(self, asset: Asset) -> None:
         assert self.smart_asa_id, err.MISSING_CTRL_ASA
-        assert self.smart_asa_id == asset_id, err.INVALID_CTRL_ASA
+        assert self.smart_asa_id == asset.id, err.INVALID_CTRL_ASA
 
-    @subroutine
-    def assert_minting_preconditions(
+    def _assert_minting_preconditions(
         self, *, asset_receiver: Account, asset_amount: UInt64
     ) -> None:
         # Mint permission restricted to Reserve.
@@ -93,7 +84,7 @@ class SmartAsa(
         # Forbidden self-mint (to Creator) and over-mint (> total).
         assert asset_receiver != Global.current_application_address, err.SELF_MINT
         assert (
-            asset_amount + self.circulating_supply(Asset(self.smart_asa_id))
+            asset_amount + self._circulating_supply(Asset(self.smart_asa_id))
             <= self.total
         ), err.OVER_MINT
         # In the case of Controlled ASA destroyed and re-created, the Smart ADA ID in Local State could be outdated.
@@ -104,8 +95,7 @@ class SmartAsa(
         if self.reserve_addr != self.clawback_addr:
             assert not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN
 
-    @subroutine
-    def assert_burning_preconditions(self, *, asset_sender: Account) -> None:
+    def _assert_burning_preconditions(self, *, asset_sender: Account) -> None:
         # Burn permission restricted to Reserve.
         assert Txn.sender == self.reserve_addr, err.UNAUTHORIZED_RESERVE
         # In case of Controlled ASA destroyed and re-created the Smart ADA ID in Local State could be outdated.
@@ -118,8 +108,7 @@ class SmartAsa(
             # Forbidden clawback through burning (burned amount not from Reserve).
             assert asset_sender == self.reserve_addr, err.CLAWBACK_BURN
 
-    @subroutine
-    def assert_clawback_preconditions(
+    def _assert_clawback_preconditions(
         self, *, asset_sender: Account, asset_receiver: Account
     ) -> None:
         # In the case of Controlled ASA destroyed and re-created, the Smart ADA ID in Local State could be outdated.
@@ -130,8 +119,7 @@ class SmartAsa(
             self.account_smart_asa_id[asset_receiver] == self.smart_asa_id
         ), err.INVALID_CTRL_ASA
 
-    @subroutine
-    def assert_regular_transfer_preconditions(
+    def _assert_regular_transfer_preconditions(
         self, *, asset_sender: Account, asset_receiver: Account
     ) -> None:
         assert Txn.sender == asset_sender, err.UNAUTHORIZED_CLAWBACK
@@ -146,8 +134,7 @@ class SmartAsa(
         assert not self.account_frozen[asset_sender], err.SENDER_FROZEN
         assert not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN
 
-    @subroutine
-    def assert_close_out_preconditions(self, close_asset: Asset) -> None:
+    def _assert_close_out_preconditions(self, close_asset: Asset) -> None:
         asa_close_out_relative_idx = Txn.group_index + 1
         asa_close_out_txn = gtxn.AssetTransferTransaction(asa_close_out_relative_idx)
         assert Txn.on_completion == OnCompleteAction.CloseOut, err.WRONG_ON_COMPLETE
@@ -169,8 +156,7 @@ class SmartAsa(
             asa_close_out_txn.asset_close_to != Global.zero_address
         ), err.CLOSE_OUT_WRONG_CLOSE_TO
 
-    @subroutine
-    def assert_close_out_not_destroyed_preconditions(
+    def _assert_close_out_not_destroyed_preconditions(
         self, close_asset: Asset, asset_creator: Account
     ) -> None:
         asa_close_out_relative_idx = Txn.group_index + 1
@@ -180,73 +166,27 @@ class SmartAsa(
         ), err.CLOSE_OUT_WRONG_CLOSE_TO
         assert close_asset.id == self.smart_asa_id, err.INVALID_CTRL_ASA
 
-    @subroutine
-    def assert_close_out_not_to_creator(self, close_to: Account) -> None:
+    def _assert_close_out_not_to_creator(self, close_to: Account) -> None:
         assert not self.global_frozen, err.GLOBAL_FROZEN
         assert not self.account_frozen[Txn.sender], err.SENDER_FROZEN
         assert not self.account_frozen[close_to], err.CLOSE_TO_FROZEN
 
-    @subroutine
-    def inner_asset_config(self) -> UInt64:
-        return (
-            itxn.AssetConfig(
-                fee=0,
-                total=cfg.TOTAL,
-                decimals=cfg.DECIMALS,
-                default_frozen=cfg.DEFAULT_FROZEN,
-                unit_name=cfg.UNIT_NAME,
-                asset_name=cfg.NAME,
-                url=cfg.APP_BINDING + self.itoa(Global.current_application_id.id),
-                manager=Global.current_application_address,
-                reserve=Global.current_application_address,
-                freeze=Global.current_application_address,
-                clawback=Global.current_application_address,
-            )
-            .submit()
-            .created_asset.id
-        )
-
-    @subroutine
-    def inner_asset_transfer(
-        self,
-        *,
-        xfer_asset: Asset,
-        asset_amount: UInt64,
-        asset_sender: Account,
-        asset_receiver: Account
-    ) -> None:
-        itxn.AssetTransfer(
-            fee=0,
-            xfer_asset=xfer_asset.id,
-            asset_amount=asset_amount,
-            asset_sender=asset_sender,
-            asset_receiver=asset_receiver,
-            sender=Global.current_application_address,
-        ).submit()
-
-    @subroutine
-    def inner_asset_destroy(self, *, destroy_asset: Asset) -> None:
-        itxn.AssetConfig(
-            fee=0,
-            config_asset=destroy_asset,
-            sender=Global.current_application_address,
-        ).submit()
-
     @arc4.abimethod
     def asset_create(
         self,
-        total: arc4.UInt64,
+        *,
+        total: UInt64,
         decimals: arc4.UInt32,
-        default_frozen: arc4.Bool,
-        unit_name: arc4.String,
-        name: arc4.String,
-        url: arc4.String,
-        metadata_hash: arc4.DynamicBytes,
-        manager_addr: arc4.Address,
-        reserve_addr: arc4.Address,
-        freeze_addr: arc4.Address,
-        clawback_addr: arc4.Address,
-    ) -> arc4.UInt64:
+        default_frozen: bool,
+        unit_name: String,
+        name: String,
+        url: String,
+        metadata_hash: Bytes,
+        manager_addr: Account,
+        reserve_addr: Account,
+        freeze_addr: Account,
+        clawback_addr: Account,
+    ) -> UInt64:
         """
         Create the Controlled ASA
 
@@ -269,25 +209,42 @@ class SmartAsa(
         # Preconditions
         assert Txn.sender == Global.creator_address, err.UNAUTHORIZED
         assert not self.smart_asa_id, err.EXISTING_CTRL_ASA
+        assert (
+            metadata_hash.length == cfg.METADATA_HASH_LENGTH
+        ), err.INVALID_METADATA_HASH_LENGTH  # Non-normative
 
-        # Effects
-        self.smart_asa_id = self.inner_asset_config()
-        self.total = total.native
-        self.decimals = decimals.native
-        self.default_frozen = default_frozen.native
-        self.unit_name = unit_name.native
-        self.name = name.native
-        self.url = url.native
-        self.metadata_hash = metadata_hash.native
-        self.manager_addr = manager_addr.native
-        self.reserve_addr = reserve_addr.native
-        self.freeze_addr = freeze_addr.native
-        self.clawback_addr = clawback_addr.native
-        return arc4.UInt64(self.smart_asa_id)
+        # Create the underlying Controlled ASA
+        self.smart_asa_id = inner_asset_config(
+            total=UInt64(cfg.TOTAL),
+            decimals=UInt64(cfg.DECIMALS),
+            default_frozen=cfg.DEFAULT_FROZEN,
+            unit_name=String(cfg.UNIT_NAME),
+            name=String(cfg.NAME),
+            url=String(cfg.URL),
+            manager=Global.current_application_address,
+            reserve=Global.current_application_address,
+            freeze=Global.current_application_address,
+            clawback=Global.current_application_address,
+        )
+
+        # Configure the Smart ASA
+        self.total = total
+        self.decimals = decimals.as_uint64()
+        self.default_frozen = default_frozen
+        self.unit_name = unit_name
+        self.name = name
+        self.url = url
+        self.metadata_hash = metadata_hash
+        self.manager_addr = manager_addr
+        self.reserve_addr = reserve_addr
+        self.freeze_addr = freeze_addr
+        self.clawback_addr = clawback_addr
+
+        return self.smart_asa_id
 
     @arc4.abimethod(allow_actions=["OptIn"])
     def asset_opt_in(
-        self, asset: Asset, ctrl_asa_opt_in: gtxn.AssetTransferTransaction
+        self, *, asset: Asset, ctrl_asa_opt_in: gtxn.AssetTransferTransaction
     ) -> None:
         """
         Smart ASA opt in (App and Controlled ASA)
@@ -297,7 +254,7 @@ class SmartAsa(
             ctrl_asa_opt_in: Controlled ASA opt in transaction
         """
         # Preconditions
-        self.assert_common_preconditions(asset.id)
+        self._assert_common_preconditions(asset)
         assert (
             ctrl_asa_opt_in.type == TransactionType.AssetTransfer
         ), err.OPT_IN_WRONG_TYPE  # Pedant
@@ -328,18 +285,19 @@ class SmartAsa(
     @arc4.abimethod
     def asset_config(
         self,
+        *,
         config_asset: Asset,
-        total: arc4.UInt64,
+        total: UInt64,
         decimals: arc4.UInt32,
-        default_frozen: arc4.Bool,
-        unit_name: arc4.String,
-        name: arc4.String,
-        url: arc4.String,
-        metadata_hash: arc4.DynamicBytes,
-        manager_addr: arc4.Address,
-        reserve_addr: arc4.Address,
-        freeze_addr: arc4.Address,
-        clawback_addr: arc4.Address,
+        default_frozen: bool,
+        unit_name: String,
+        name: String,
+        url: String,
+        metadata_hash: Bytes,
+        manager_addr: Account,
+        reserve_addr: Account,
+        freeze_addr: Account,
+        clawback_addr: Account,
     ) -> None:
         """
         Configure Smart ASA (for unchanged parameters use existing value - no optional args on AVM)
@@ -359,7 +317,7 @@ class SmartAsa(
             clawback_addr: Account that can clawback holdings of the Smart ASA
         """
         # Preconditions
-        self.assert_common_preconditions(config_asset.id)
+        self._assert_common_preconditions(config_asset)
         assert Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER
         if reserve_addr != self.reserve_addr:
             assert self.reserve_addr != Global.zero_address, err.DISABLED_RESERVE
@@ -367,26 +325,27 @@ class SmartAsa(
             assert self.freeze_addr != Global.zero_address, err.DISABLED_FREEZE
         if clawback_addr != self.clawback_addr:
             assert self.clawback_addr != Global.zero_address, err.DISABLED_CLAWBACK
-        assert total >= self.circulating_supply(config_asset), err.INVALID_TOTAL
+        assert total >= self._circulating_supply(config_asset), err.INVALID_TOTAL
 
         # Effects
-        self.total = total.native
-        self.decimals = decimals.native
-        self.default_frozen = default_frozen.native
-        self.unit_name = unit_name.native
-        self.name = name.native
-        self.url = url.native
-        self.metadata_hash = metadata_hash.native
-        self.manager_addr = manager_addr.native
-        self.reserve_addr = reserve_addr.native
-        self.freeze_addr = freeze_addr.native
-        self.clawback_addr = clawback_addr.native
+        self.total = total
+        self.decimals = decimals.as_uint64()
+        self.default_frozen = default_frozen
+        self.unit_name = unit_name
+        self.name = name
+        self.url = url
+        self.metadata_hash = metadata_hash
+        self.manager_addr = manager_addr
+        self.reserve_addr = reserve_addr
+        self.freeze_addr = freeze_addr
+        self.clawback_addr = clawback_addr
 
     @arc4.abimethod
     def asset_transfer(
         self,
+        *,
         xfer_asset: Asset,
-        asset_amount: arc4.UInt64,
+        asset_amount: UInt64,
         asset_sender: Account,
         asset_receiver: Account,
     ) -> None:
@@ -400,32 +359,32 @@ class SmartAsa(
             asset_receiver: Smart ASA receiver
         """
         # Preconditions
-        self.assert_common_preconditions(xfer_asset.id)
+        self._assert_common_preconditions(xfer_asset)
         if asset_sender == Global.current_application_address:
-            self.assert_minting_preconditions(
-                asset_receiver=asset_receiver, asset_amount=asset_amount.native
+            self._assert_minting_preconditions(
+                asset_receiver=asset_receiver, asset_amount=asset_amount
             )
         elif asset_receiver == Global.current_application_address:
-            self.assert_burning_preconditions(asset_sender=asset_sender)
+            self._assert_burning_preconditions(asset_sender=asset_sender)
         elif Txn.sender == self.clawback_addr:
-            self.assert_clawback_preconditions(
+            self._assert_clawback_preconditions(
                 asset_sender=asset_sender, asset_receiver=asset_receiver
             )
         else:
-            self.assert_regular_transfer_preconditions(
+            self._assert_regular_transfer_preconditions(
                 asset_sender=asset_sender, asset_receiver=asset_receiver
             )
 
         # Effects
-        self.inner_asset_transfer(
+        inner_asset_transfer(
             xfer_asset=xfer_asset,
-            asset_amount=asset_amount.native,
+            asset_amount=asset_amount,
             asset_sender=asset_sender,
             asset_receiver=asset_receiver,
         )
 
     @arc4.abimethod
-    def asset_freeze(self, freeze_asset: Asset, asset_frozen: arc4.Bool) -> None:
+    def asset_freeze(self, *, freeze_asset: Asset, asset_frozen: bool) -> None:
         """
         Smart ASA global freeze (all accounts)
 
@@ -434,15 +393,15 @@ class SmartAsa(
             asset_frozen: Smart ASA frozen status
         """
         # Preconditions
-        self.assert_common_preconditions(freeze_asset.id)
+        self._assert_common_preconditions(freeze_asset)
         assert Txn.sender == self.freeze_addr, err.UNAUTHORIZED_FREEZE
 
         # Effects
-        self.global_frozen = asset_frozen.native
+        self.global_frozen = asset_frozen
 
     @arc4.abimethod
     def account_freeze(
-        self, freeze_asset: Asset, freeze_account: Account, asset_frozen: arc4.Bool
+        self, *, freeze_asset: Asset, freeze_account: Account, asset_frozen: bool
     ) -> None:
         """
         Smart ASA local freeze (account specific)
@@ -453,17 +412,17 @@ class SmartAsa(
             asset_frozen: Smart ASA frozen status
         """
         # Preconditions
-        self.assert_common_preconditions(freeze_asset.id)
+        self._assert_common_preconditions(freeze_asset)
         assert (
             self.account_smart_asa_id[freeze_account] == self.smart_asa_id
         ), err.INVALID_CTRL_ASA
         assert Txn.sender == self.freeze_addr, err.UNAUTHORIZED_FREEZE
 
         # Effects
-        self.account_frozen[freeze_account] = asset_frozen.native
+        self.account_frozen[freeze_account] = asset_frozen
 
     @arc4.abimethod(allow_actions=["CloseOut"])
-    def asset_close_out(self, close_asset: Asset, close_to: Account) -> None:
+    def asset_close_out(self, *, close_asset: Asset, close_to: Account) -> None:
         """
         Smart ASA close out (App and Controlled ASA)
 
@@ -472,20 +431,20 @@ class SmartAsa(
             close_to: Account to send all the Smart ASA remainder to.
         """
         # Preconditions
-        self.assert_close_out_preconditions(close_asset)
+        self._assert_close_out_preconditions(close_asset)
         (creator, exists) = op.AssetParamsGet.asset_creator(close_asset.id)
         if exists:  # Smart ASA has not been destroyed
-            self.assert_close_out_not_destroyed_preconditions(close_asset, creator)
+            self._assert_close_out_not_destroyed_preconditions(close_asset, creator)
             if (
                 close_to != creator
             ):  # If close-out target is not the Creator, then close-out target MUST be opted-in
                 assert (
                     self.account_smart_asa_id[close_to] == self.smart_asa_id
                 ), err.INVALID_CTRL_ASA
-                self.assert_close_out_not_to_creator(close_to)
+                self._assert_close_out_not_to_creator(close_to)
 
             # Effects
-            self.inner_asset_transfer(
+            inner_asset_transfer(
                 xfer_asset=close_asset,
                 asset_amount=close_asset.balance(Txn.sender),
                 asset_sender=Txn.sender,
@@ -493,7 +452,7 @@ class SmartAsa(
             )
 
     @arc4.abimethod
-    def asset_destroy(self, destroy_asset: Asset) -> None:
+    def asset_destroy(self, *, destroy_asset: Asset) -> None:
         """
         Destroy the Controlled ASA
 
@@ -501,11 +460,11 @@ class SmartAsa(
             destroy_asset: Smart ASA ID to destroy
         """
         # Preconditions
-        self.assert_common_preconditions(destroy_asset.id)
+        self._assert_common_preconditions(destroy_asset)
         assert Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER
 
         # Effects
-        self.inner_asset_destroy(destroy_asset=destroy_asset)
+        inner_asset_destroy(destroy_asset=destroy_asset)
         self.total = UInt64()
         self.decimals = UInt64()
         self.default_frozen = False
@@ -521,7 +480,7 @@ class SmartAsa(
         self.global_frozen = False
 
     @arc4.abimethod(readonly=True)
-    def get_asset_config(self, asset: Asset) -> AssetConfig:
+    def get_asset_config(self, *, asset: Asset) -> AssetConfig:
         """
         Get Smart ASA configuration
 
@@ -532,25 +491,25 @@ class SmartAsa(
             Smart ASA configuration parameters
         """
         # Preconditions
-        self.assert_common_preconditions(asset.id)
+        self._assert_common_preconditions(asset)
 
         # Effects
         return AssetConfig(
-            total=arc4.UInt64(self.total),
+            total=self.total,
             decimals=arc4.UInt32(self.decimals),
-            default_frozen=arc4.Bool(self.default_frozen),
-            unit_name=arc4.String(self.unit_name),
-            name=arc4.String(self.name),
-            url=arc4.String(self.url),
-            metadata_hash=arc4.DynamicBytes(self.metadata_hash),
-            manager_addr=arc4.Address(self.manager_addr),
-            reserve_addr=arc4.Address(self.reserve_addr),
-            freeze_addr=arc4.Address(self.freeze_addr),
-            clawback_addr=arc4.Address(self.clawback_addr),
+            default_frozen=self.default_frozen,
+            unit_name=self.unit_name,
+            name=self.name,
+            url=self.url,
+            metadata_hash=self.metadata_hash,
+            manager_addr=self.manager_addr,
+            reserve_addr=self.reserve_addr,
+            freeze_addr=self.freeze_addr,
+            clawback_addr=self.clawback_addr,
         )
 
     @arc4.abimethod(readonly=True)
-    def get_asset_is_frozen(self, freeze_asset: Asset) -> arc4.Bool:
+    def get_asset_is_frozen(self, *, freeze_asset: Asset) -> bool:
         """
         Get Smart ASA global frozen status
 
@@ -561,15 +520,15 @@ class SmartAsa(
             Smart ASA global frozen status
         """
         # Preconditions
-        self.assert_common_preconditions(freeze_asset.id)
+        self._assert_common_preconditions(freeze_asset)
 
         # Effects
-        return arc4.Bool(self.global_frozen)
+        return self.global_frozen
 
     @arc4.abimethod(readonly=True)
     def get_account_is_frozen(
-        self, freeze_asset: Asset, freeze_account: Account
-    ) -> arc4.Bool:
+        self, *, freeze_asset: Asset, freeze_account: Account
+    ) -> bool:
         """
         Get Smart ASA account frozen status
 
@@ -581,13 +540,13 @@ class SmartAsa(
             Smart ASA account frozen status
         """
         # Preconditions
-        self.assert_common_preconditions(freeze_asset.id)
+        self._assert_common_preconditions(freeze_asset)
 
         # Effects
-        return arc4.Bool(self.account_frozen[freeze_account])
+        return self.account_frozen[freeze_account]
 
     @arc4.abimethod(readonly=True)
-    def get_circulating_supply(self, asset: Asset) -> arc4.UInt64:
+    def get_circulating_supply(self, *, asset: Asset) -> UInt64:
         """
         Get Smart ASA circulating supply
 
@@ -598,7 +557,7 @@ class SmartAsa(
             Smart ASA circulating supply
         """
         # Preconditions
-        self.assert_common_preconditions(asset.id)
+        self._assert_common_preconditions(asset)
 
         # Effects
-        return arc4.UInt64(self.circulating_supply(asset))
+        return self._circulating_supply(asset)
