@@ -8,12 +8,12 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaClient,
 )
 
-from .conftest import ASAConfig
+from .conftest import ASA_METADATA_REGISTRY_ID, SmartASAConfig
 
 
 def test_pass_asset_create(
     smart_asa_client_no_asset: SmartAsaClient,
-    asa_config: ASAConfig,
+    asa_config: SmartASAConfig,
 ) -> None:
     sp = smart_asa_client_no_asset.algorand.client.algod.suggested_params()
     sp.flat_fee = True
@@ -24,6 +24,14 @@ def test_pass_asset_create(
         params=CommonAppCallParams(static_fee=AlgoAmount.from_micro_algo(sp.fee)),
     ).abi_return
 
+    arc90_uri = (
+        "algorand://net:"
+        + smart_asa_client_no_asset.algorand.client.network().genesis_id
+        + "/app/"
+        + str(ASA_METADATA_REGISTRY_ID)
+        + "?box="
+    )
+
     # Verify Controlled ASA
     ctrl_asset = smart_asa_client_no_asset.algorand.asset.get_by_id(smart_asa_id)
     assert ctrl_asset.asset_id == smart_asa_id
@@ -33,7 +41,7 @@ def test_pass_asset_create(
     assert ctrl_asset.default_frozen
     assert ctrl_asset.unit_name == cfg.UNIT_NAME
     assert ctrl_asset.asset_name == cfg.NAME
-    assert ctrl_asset.url == cfg.URL
+    assert ctrl_asset.url == arc90_uri
 
     # Verify Smart ASA
     state = smart_asa_client_no_asset.state.global_state
@@ -54,7 +62,7 @@ def test_pass_asset_create(
 def test_fail_unauthorized(
     smart_asa_client_no_asset: SmartAsaClient,
     eve: SigningAccount,
-    asa_config: ASAConfig,
+    asa_config: SmartASAConfig,
 ) -> None:
     sp = smart_asa_client_no_asset.algorand.client.algod.suggested_params()
     sp.flat_fee = True
@@ -72,7 +80,7 @@ def test_fail_unauthorized(
 
 
 def test_fail_asa_already_created(
-    smart_asa_client: SmartAsaClient, asa_config: ASAConfig
+    smart_asa_client: SmartAsaClient, asa_config: SmartASAConfig
 ) -> None:
     sp = smart_asa_client.algorand.client.algod.suggested_params()
     sp.flat_fee = True
