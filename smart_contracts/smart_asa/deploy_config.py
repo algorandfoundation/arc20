@@ -80,10 +80,10 @@ def deploy() -> None:
         env_path = Path(__file__).parent.parent.parent / ".env.localnet.template"
         deployer = algorand.account.from_environment("DEPLOYER")
         registry_deployment = RegistryDeployment(
-            network="localnet",
+            network=algorand.client.network().genesis_id,
             genesis_hash_b64=algorand.client.network().genesis_hash,
             app_id=0,
-            arc90_uri_netauth=algorand.client.network().genesis_id,
+            arc90_uri_netauth="net:" + algorand.client.network().genesis_id,
             creator_address=deployer.address,
         )
     elif algorand.client.is_testnet():
@@ -103,7 +103,7 @@ def deploy() -> None:
     load_dotenv(env_path)
 
     logger.info(f"Deployer address: {deployer.address}")
-    logger.info(f"ASA Metadata Registry deployment: {registry_deployment.__dict__}")
+    logger.info(f"ASA Metadata Registry deployment: {registry_deployment}")
 
     factory = algorand.client.get_typed_app_factory(
         SmartAsaFactory,
