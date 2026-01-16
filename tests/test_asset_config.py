@@ -8,9 +8,9 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaClient,
 )
 
-from .conftest import ASAConfig
+from .conftest import SmartASAConfig
 
-ASA_CONFIG = ASAConfig(
+ASA_CONFIG = SmartASAConfig(
     total=42,
     decimals=69,
     default_frozen=True,
