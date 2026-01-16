@@ -41,6 +41,7 @@ CLOSE_OUT_WRONG_CLOSE_TO = "Wrong Close Out on Close Out"
 INVALID_CLOSE_OUT_GROUP_SIZE = "Invalid Close Out group size"
 
 INVALID_TOTAL = "Invalid Total, must be >= circulating supply"
+INVALID_METADATA_HASH_LENGTH = "Invalid Metadata Hash length, must be 32 bytes"
 
 SELF_MINT = "Forbidden self minting"
 OVER_MINT = "Forbidden over minting"
