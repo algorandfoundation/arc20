@@ -90,8 +90,9 @@ def deploy() -> None:
         env_path = Path(__file__).parent.parent.parent / ".env.testnet.template"
         deployer = algorand.account.from_environment("DEPLOYER")
         registry_deployment = DEFAULT_DEPLOYMENTS["testnet"]
-        registry_app_client = algorand.client.get_typed_app_factory(
+        registry_app_client = algorand.client.get_typed_app_client_by_id(
             AsaMetadataRegistryClient,
+            app_id=registry_deployment.app_id,
             default_sender=deployer.address,
             default_signer=deployer.signer,
         )
