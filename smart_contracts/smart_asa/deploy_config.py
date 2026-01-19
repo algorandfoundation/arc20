@@ -14,7 +14,7 @@ from algokit_utils.config import config
 
 logger = logging.getLogger(__name__)
 
-APP_FUNDS: Final[AlgoAmount] = AlgoAmount(algo=1)
+APP_FUNDS: Final[AlgoAmount] = AlgoAmount(micro_algo=100_000)
 
 # ==============================================================================
 # ASSET CREATION PARAMETERS
@@ -56,29 +56,32 @@ def deploy() -> None:
     )
     logger.info(f"Smart ASA Application ID: {smart_asa_app_client.app_id}")
 
-    algorand.account.ensure_funded_from_environment(
-        account_to_fund=smart_asa_app_client.app_address,
-        min_spending_balance=APP_FUNDS,
-    )
+    smart_asa_id = smart_asa_app_client.state.global_state.smart_asa_id
 
-    sp = smart_asa_app_client.algorand.client.algod.suggested_params()
-    sp.flat_fee = True
-    sp.fee = sp.min_fee * 2  # type: ignore
+    if not smart_asa_id:
+        algorand.account.ensure_funded_from_environment(
+            account_to_fund=smart_asa_app_client.app_address,
+            min_spending_balance=APP_FUNDS,
+        )
 
-    asset_id = smart_asa_app_client.send.asset_create(
-        AssetCreateArgs(
-            total=ASA_TOTAL,
-            decimals=ASA_DECIMALS,
-            default_frozen=ASA_DEFAULT_FROZEN,
-            unit_name=ASA_UNIT_NAME,
-            name=ASA_NAME,
-            metadata_hash=ASA_METADATA_HASH,
-            url=ASA_URL,
-            manager_addr=deployer.address,
-            reserve_addr=smart_asa_app_client.app_address,
-            clawback_addr=deployer.address,
-            freeze_addr=deployer.address,
-        ),
-        params=CommonAppCallParams(static_fee=AlgoAmount.from_micro_algo(sp.fee)),
-    ).abi_return
-    logger.info(f"Smart ASA ID: {asset_id}")
+        sp = smart_asa_app_client.algorand.client.algod.suggested_params()
+        sp.flat_fee = True
+        sp.fee = sp.min_fee * 2  # type: ignore
+
+        smart_asa_id = smart_asa_app_client.send.asset_create(
+            AssetCreateArgs(
+                total=ASA_TOTAL,
+                decimals=ASA_DECIMALS,
+                default_frozen=ASA_DEFAULT_FROZEN,
+                unit_name=ASA_UNIT_NAME,
+                name=ASA_NAME,
+                metadata_hash=ASA_METADATA_HASH,
+                url=ASA_URL,
+                manager_addr=deployer.address,
+                reserve_addr=smart_asa_app_client.app_address,
+                clawback_addr=deployer.address,
+                freeze_addr=deployer.address,
+            ),
+            params=CommonAppCallParams(static_fee=AlgoAmount.from_micro_algo(sp.fee)),
+        ).abi_return
+        logger.info(f"Smart ASA ID: {smart_asa_id}")
