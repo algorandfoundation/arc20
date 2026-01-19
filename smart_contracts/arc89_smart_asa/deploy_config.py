@@ -160,7 +160,7 @@ def deploy() -> None:
             netauth=registry_deployment.arc90_uri_netauth,
             app_id=registry_deployment.app_id,
             box_name=None,
-            compliance=Arc90Compliance((20, 89)),  # ARC-20, ARC-89
+            compliance=Arc90Compliance((20, 62, 89)),  # ARC-20, ARC-62 ARC-89
         )
         assert arc90_uri.is_partial
         logger.info(f"Smart ASA Metadata Partial URI: {arc90_uri.to_uri()}")
