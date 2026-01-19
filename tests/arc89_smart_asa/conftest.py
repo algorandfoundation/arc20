@@ -3,10 +3,12 @@ from algokit_utils import (
     AlgoAmount,
     AlgorandClient,
     AppClientCompilationParams,
+    AssetOptInParams,
     CommonAppCallParams,
     SigningAccount,
 )
 from algokit_utils.config import config
+from algosdk.atomic_transaction_composer import TransactionWithSigner
 from asa_metadata_registry import Arc90Compliance, Arc90Uri, AsaMetadataRegistry
 from asa_metadata_registry._generated.asa_metadata_registry_client import (
     AsaMetadataRegistryFactory,
@@ -17,6 +19,8 @@ from smart_contracts.artifacts.arc89_smart_asa.arc89_smart_asa_client import (
     Arc89SmartAsaClient,
     Arc89SmartAsaFactory,
     AssetCreateArgs,
+    AssetOptInArgs,
+    AssetTransferArgs,
 )
 from tests.conftest import INITIAL_FUNDS, SmartASAConfig
 
@@ -86,7 +90,7 @@ def arc89_asa_config(
         netauth="net:" + algorand.client.network().genesis_id,
         app_id=asa_metadata_registry.config.app_id,
         box_name=None,
-        compliance=Arc90Compliance((20, 89)),  # ARC-20, ARC-89
+        compliance=Arc90Compliance((20, 62, 89)),  # ARC-20, ARC-62, ARC-89
     )
     assert arc90_uri.is_partial
 
@@ -110,3 +114,45 @@ def arc89_smart_asa_client(
         params=CommonAppCallParams(static_fee=min_fee_2x),
     )
     return arc89_smart_asa_client_no_asset
+
+
+@pytest.fixture(scope="function")
+def reserve_with_supply(
+    algorand: AlgorandClient,
+    min_fee_2x: AlgoAmount,
+    reserve: SigningAccount,
+    arc89_smart_asa_client: Arc89SmartAsaClient,
+) -> SigningAccount:
+    smart_asa = arc89_smart_asa_client.state.global_state
+    smart_asa_id = smart_asa.smart_asa_id
+    ctrl_asa_opt_in = TransactionWithSigner(
+        txn=algorand.create_transaction.asset_opt_in(
+            AssetOptInParams(asset_id=smart_asa_id, sender=reserve.address)
+        ),
+        signer=reserve.signer,
+    )
+    arc89_smart_asa_client.send.opt_in.asset_opt_in(
+        AssetOptInArgs(
+            asset=smart_asa_id,
+            ctrl_asa_opt_in=ctrl_asa_opt_in,
+        ),
+        params=CommonAppCallParams(
+            signer=reserve.signer,
+            sender=reserve.address,
+        ),
+    )
+
+    arc89_smart_asa_client.send.asset_transfer(
+        AssetTransferArgs(
+            xfer_asset=smart_asa_id,
+            asset_amount=smart_asa.total,
+            asset_sender=arc89_smart_asa_client.app_address,
+            asset_receiver=reserve.address,
+        ),
+        params=CommonAppCallParams(
+            static_fee=min_fee_2x,
+            signer=reserve.signer,
+            sender=reserve.address,
+        ),
+    )
+    return reserve
