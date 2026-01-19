@@ -8,7 +8,7 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
 )
 
 
-@pytest.mark.parametrize("smart_asa_client", [False], indirect=True)
+@pytest.mark.parametrize("asa_config", [False], indirect=True)
 def test_pass_global_frozen(
     smart_asa_client: SmartAsaClient, freeze: SigningAccount
 ) -> None:

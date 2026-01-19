@@ -2,22 +2,11 @@ from algopy import (
     Account,
     Asset,
     Bytes,
-    Global,
     String,
-    TemplateVar,
     UInt64,
     itxn,
     subroutine,
 )
-
-from .constants import (
-    ARC90_URI_APP_PATH,
-    ARC90_URI_BOX_QUERY,
-    ARC90_URI_PATH_SEP,
-    ARC90_URI_SCHEME,
-    MAINNET_GH_B64,
-)
-from .template_vars import ARC90_NETAUTH
 
 
 @subroutine
@@ -35,7 +24,7 @@ def itoa(i: UInt64) -> Bytes:
 
 
 @subroutine
-def inner_asset_config(
+def inner_asset_create(
     *,
     total: UInt64,
     decimals: UInt64,
@@ -43,6 +32,7 @@ def inner_asset_config(
     unit_name: String,
     name: String,
     url: String,
+    metadata_hash: Bytes,
     manager: Account,
     reserve: Account,
     freeze: Account,
@@ -50,13 +40,13 @@ def inner_asset_config(
 ) -> UInt64:
     return (
         itxn.AssetConfig(
-            fee=0,
             total=total,
             decimals=decimals,
             default_frozen=default_frozen,
             unit_name=unit_name,
             asset_name=name,
             url=url,
+            metadata_hash=metadata_hash,
             manager=manager,
             reserve=reserve,
             freeze=freeze,
@@ -68,6 +58,24 @@ def inner_asset_config(
 
 
 @subroutine
+def inner_asset_config(
+    *,
+    config_asset: Asset,
+    manager: Account,
+    reserve: Account,
+    freeze: Account,
+    clawback: Account,
+) -> None:
+    itxn.AssetConfig(
+        config_asset=config_asset,
+        manager=manager,
+        reserve=reserve,
+        freeze=freeze,
+        clawback=clawback,
+    ).submit()
+
+
+@subroutine
 def inner_asset_transfer(
     *,
     xfer_asset: Asset,
@@ -76,7 +84,6 @@ def inner_asset_transfer(
     asset_receiver: Account,
 ) -> None:
     itxn.AssetTransfer(
-        fee=0,
         xfer_asset=xfer_asset.id,
         asset_amount=asset_amount,
         asset_sender=asset_sender,
@@ -87,22 +94,5 @@ def inner_asset_transfer(
 @subroutine
 def inner_asset_destroy(*, destroy_asset: Asset) -> None:
     itxn.AssetConfig(
-        fee=0,
         config_asset=destroy_asset,
     ).submit()
-
-
-@subroutine
-def arc90_box_query(app_id: UInt64, box_name: Bytes) -> Bytes:
-    if Global.genesis_hash == Bytes.from_base64(MAINNET_GH_B64):
-        arc90_netauth = Bytes()
-    else:
-        arc90_netauth = TemplateVar[Bytes](ARC90_NETAUTH) + ARC90_URI_PATH_SEP
-    return (
-        ARC90_URI_SCHEME
-        + arc90_netauth
-        + ARC90_URI_APP_PATH
-        + itoa(app_id)
-        + ARC90_URI_BOX_QUERY
-        + box_name
-    )

@@ -7,7 +7,6 @@ from algopy import (
     OnCompleteAction,
     StateTotals,
     String,
-    TemplateVar,
     TransactionType,
     Txn,
     UInt64,
@@ -19,13 +18,11 @@ from algopy import (
 from smart_contracts import errors as err
 from smart_contracts.arc20_interface import Arc20Interface
 from smart_contracts.avm_library import (
-    arc90_box_query,
-    inner_asset_config,
+    inner_asset_create,
     inner_asset_destroy,
     inner_asset_transfer,
 )
 from smart_contracts.avm_types import AssetConfig
-from smart_contracts.template_vars import ARC89_APP_ID
 
 from . import config as cfg
 
@@ -40,7 +37,7 @@ class SmartAsa(
     ),
 ):
     """
-    ARC-0020 (Smart ASA) - Reference Implementation
+    Smart ASA (ARC-20) Reference Implementation
     """
 
     def __init__(self) -> None:
@@ -244,15 +241,14 @@ class SmartAsa(
         ), err.INVALID_METADATA_HASH_LENGTH  # Non-normative
 
         # Create the underlying Controlled ASA
-        self.smart_asa_id = inner_asset_config(
+        self.smart_asa_id = inner_asset_create(
             total=UInt64(cfg.TOTAL),
             decimals=UInt64(cfg.DECIMALS),
             default_frozen=cfg.DEFAULT_FROZEN,
-            unit_name=String(cfg.UNIT_NAME),
-            name=String(cfg.NAME),
-            url=String.from_bytes(
-                arc90_box_query(TemplateVar[UInt64](ARC89_APP_ID), Bytes())
-            ),
+            unit_name=unit_name,
+            name=name,
+            url=url,
+            metadata_hash=metadata_hash,
             manager=Global.current_application_address,
             reserve=Global.current_application_address,
             freeze=Global.current_application_address,

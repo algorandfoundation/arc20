@@ -11,16 +11,13 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
 
 
 def test_pass_destroy(
-    smart_asa_client: SmartAsaClient, manager: SigningAccount
+    min_fee_2x: AlgoAmount, smart_asa_client: SmartAsaClient, manager: SigningAccount
 ) -> None:
     smart_asa = smart_asa_client.state.global_state
-    sp = smart_asa_client.algorand.client.algod.suggested_params()
-    sp.flat_fee = True
-    sp.fee = sp.min_fee * 2
     smart_asa_client.send.asset_destroy(
         AssetDestroyArgs(destroy_asset=smart_asa.smart_asa_id),
         params=CommonAppCallParams(
-            static_fee=AlgoAmount.from_micro_algo(sp.fee),
+            static_fee=min_fee_2x,
             signer=manager.signer,
             sender=manager.address,
         ),
@@ -34,7 +31,7 @@ def test_pass_destroy(
     assert smart_asa.unit_name == ""
     assert smart_asa.name == ""
     assert smart_asa.url == ""
-    assert smart_asa.metadata_hash == ""
+    assert smart_asa.metadata_hash == ""  # FIXME: The typed state should be bytes
     assert smart_asa.manager_addr == ZERO_ADDRESS
     assert smart_asa.reserve_addr == ZERO_ADDRESS
     assert smart_asa.freeze_addr == ZERO_ADDRESS
@@ -52,17 +49,14 @@ def test_fail_invalid_ctrl_asa() -> None:
 
 
 def test_fail_unauthorized_manager(
-    smart_asa_client: SmartAsaClient, eve: SigningAccount
+    min_fee_2x: AlgoAmount, smart_asa_client: SmartAsaClient, eve: SigningAccount
 ) -> None:
     smart_asa = smart_asa_client.state.global_state
-    sp = smart_asa_client.algorand.client.algod.suggested_params()
-    sp.flat_fee = True
-    sp.fee = sp.min_fee * 2
     with pytest.raises(LogicError, match=err.UNAUTHORIZED_MANAGER):
         smart_asa_client.send.asset_destroy(
             AssetDestroyArgs(destroy_asset=smart_asa.smart_asa_id),
             params=CommonAppCallParams(
-                static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                static_fee=min_fee_2x,
                 signer=eve.signer,
                 sender=eve.address,
             ),
@@ -71,19 +65,17 @@ def test_fail_unauthorized_manager(
 
 @pytest.mark.parametrize("asa_config", [False], indirect=True)
 def test_fail_still_in_circulation(
+    min_fee_2x: AlgoAmount,
     smart_asa_client: SmartAsaClient,
     manager: SigningAccount,
     account_with_supply: SigningAccount,  # To have circulating supply
 ) -> None:
     smart_asa = smart_asa_client.state.global_state
-    sp = smart_asa_client.algorand.client.algod.suggested_params()
-    sp.flat_fee = True
-    sp.fee = sp.min_fee * 2
     with pytest.raises(LogicError, match="creator is holding only"):
         smart_asa_client.send.asset_destroy(
             AssetDestroyArgs(destroy_asset=smart_asa.smart_asa_id),
             params=CommonAppCallParams(
-                static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                static_fee=min_fee_2x,
                 signer=manager.signer,
                 sender=manager.address,
             ),

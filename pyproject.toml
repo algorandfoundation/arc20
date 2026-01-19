@@ -7,7 +7,7 @@ license = "MIT"
 authors = ["cusma <cosimo.bassi@algorand.foundation>"]
 maintainers = ["cusma <cosimo.bassi@gmail.com>"]
 readme = ["README.md"]
-documentation = "https://arc.algorand.foundation/ARCs/arc-0020"
+documentation = "https://dev.algorand.co/arc-standards/arc-0020/"
 repository = "https://github.com/cusma/arc-20"
 keywords = ["algorand", "blockchain", "tokenization"]
 

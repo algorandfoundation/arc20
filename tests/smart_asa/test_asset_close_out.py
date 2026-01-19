@@ -16,6 +16,7 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
 @pytest.mark.parametrize("asa_config", [False], indirect=True)
 def test_pass_regular_close_out(
     algorand: AlgorandClient,
+    min_fee_2x: AlgoAmount,
     smart_asa_client: SmartAsaClient,
     account_with_supply: SigningAccount,
     receiver: SigningAccount,
@@ -30,16 +31,14 @@ def test_pass_regular_close_out(
     ).balance
     assert account_asset_balance == smart_asa.total
     assert receiver_asset_balance == 0
-    sp = smart_asa_client.algorand.client.algod.suggested_params()
-    sp.flat_fee = True
-    sp.fee = sp.min_fee * 2
+
     close_out = smart_asa_client.new_group().close_out.asset_close_out(
         AssetCloseOutArgs(
             close_asset=smart_asa_id,
             close_to=receiver.address,
         ),
         params=CommonAppCallParams(
-            static_fee=AlgoAmount.from_micro_algo(sp.fee),
+            static_fee=min_fee_2x,
             signer=account_with_supply.signer,
             sender=account_with_supply.address,
         ),

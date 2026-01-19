@@ -15,6 +15,7 @@ class TestMint:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_pass_as_reserve(
         self,
+        min_fee_2x: AlgoAmount,
         reserve: SigningAccount,
         smart_asa_client: SmartAsaClient,
         receiver: SigningAccount,
@@ -32,9 +33,7 @@ class TestMint:
             ).balance
             == 0
         )
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         smart_asa_client.send.asset_transfer(
             AssetTransferArgs(
                 xfer_asset=smart_asa.smart_asa_id,
@@ -43,7 +42,7 @@ class TestMint:
                 asset_receiver=receiver.address,
             ),
             params=CommonAppCallParams(
-                static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                static_fee=min_fee_2x,
                 signer=reserve.signer,
                 sender=reserve.address,
             ),
@@ -63,6 +62,7 @@ class TestMint:
 
     def test_pass_as_reserve_and_clawback(
         self,
+        min_fee_2x: AlgoAmount,
         smart_asa_client: SmartAsaClient,
         reserve_and_clawback: SigningAccount,
         receiver: SigningAccount,
@@ -80,9 +80,7 @@ class TestMint:
             ).balance
             == 0
         )
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         smart_asa_client.send.asset_transfer(
             AssetTransferArgs(
                 xfer_asset=smart_asa.smart_asa_id,
@@ -91,7 +89,7 @@ class TestMint:
                 asset_receiver=receiver.address,
             ),
             params=CommonAppCallParams(
-                static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                static_fee=min_fee_2x,
                 signer=reserve_and_clawback.signer,
                 sender=reserve_and_clawback.address,
             ),
@@ -111,14 +109,13 @@ class TestMint:
 
     def test_fail_unauthorized(
         self,
+        min_fee_2x: AlgoAmount,
         eve: SigningAccount,
         smart_asa_client: SmartAsaClient,
         receiver: SigningAccount,
     ) -> None:
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         with pytest.raises(LogicError, match=err.UNAUTHORIZED_RESERVE):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -128,7 +125,7 @@ class TestMint:
                     asset_receiver=receiver.address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=eve.signer,
                     sender=eve.address,
                 ),
@@ -136,14 +133,13 @@ class TestMint:
 
     def test_fail_as_clawback(
         self,
+        min_fee_2x: AlgoAmount,
         clawback: SigningAccount,
         smart_asa_client: SmartAsaClient,
         receiver: SigningAccount,
     ) -> None:
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         with pytest.raises(LogicError, match=err.UNAUTHORIZED_RESERVE):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -153,7 +149,7 @@ class TestMint:
                     asset_receiver=receiver.address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=clawback.signer,
                     sender=clawback.address,
                 ),
@@ -165,14 +161,13 @@ class TestMint:
     @pytest.mark.parametrize("asa_config", [True], indirect=True)
     def test_fail_frozen_receiver(
         self,
+        min_fee_2x: AlgoAmount,
         reserve: SigningAccount,
         smart_asa_client: SmartAsaClient,
         receiver: SigningAccount,
     ) -> None:
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         with pytest.raises(LogicError, match=err.RECEIVER_FROZEN):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -182,7 +177,7 @@ class TestMint:
                     asset_receiver=receiver.address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=reserve.signer,
                     sender=reserve.address,
                 ),
@@ -191,13 +186,12 @@ class TestMint:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_self_minting(
         self,
+        min_fee_2x: AlgoAmount,
         reserve: SigningAccount,
         smart_asa_client: SmartAsaClient,
     ) -> None:
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         with pytest.raises(LogicError, match=err.SELF_MINT):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -207,7 +201,7 @@ class TestMint:
                     asset_receiver=smart_asa_client.app_address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=reserve.signer,
                     sender=reserve.address,
                 ),
@@ -215,14 +209,12 @@ class TestMint:
 
     def test_fail_over_minting(
         self,
+        min_fee_2x: AlgoAmount,
         reserve: SigningAccount,
         smart_asa_client: SmartAsaClient,
         receiver: SigningAccount,
     ) -> None:
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
         with pytest.raises(LogicError, match=err.OVER_MINT):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -232,7 +224,7 @@ class TestMint:
                     asset_receiver=receiver.address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=reserve.signer,
                     sender=reserve.address,
                 ),
@@ -242,7 +234,10 @@ class TestMint:
 class TestBurn:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_pass_as_reserve(
-        self, smart_asa_client: SmartAsaClient, reserve_with_supply: SigningAccount
+        self,
+        min_fee_2x: AlgoAmount,
+        smart_asa_client: SmartAsaClient,
+        reserve_with_supply: SigningAccount,
     ) -> None:
         smart_asa = smart_asa_client.state.global_state
         assert (
@@ -257,9 +252,7 @@ class TestBurn:
             ).balance
             == smart_asa.total
         )
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         smart_asa_client.send.asset_transfer(
             AssetTransferArgs(
                 xfer_asset=smart_asa.smart_asa_id,
@@ -268,7 +261,7 @@ class TestBurn:
                 asset_receiver=smart_asa_client.app_address,
             ),
             params=CommonAppCallParams(
-                static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                static_fee=min_fee_2x,
                 signer=reserve_with_supply.signer,
                 sender=reserve_with_supply.address,
             ),
@@ -288,6 +281,7 @@ class TestBurn:
 
     def test_pass_as_reserve_and_clawback(
         self,
+        min_fee_2x: AlgoAmount,
         smart_asa_client: SmartAsaClient,
         reserve_and_clawback: SigningAccount,
         account_with_supply: SigningAccount,
@@ -305,9 +299,7 @@ class TestBurn:
             ).balance
             == smart_asa.total
         )
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         smart_asa_client.send.asset_transfer(
             AssetTransferArgs(
                 xfer_asset=smart_asa.smart_asa_id,
@@ -316,7 +308,7 @@ class TestBurn:
                 asset_receiver=smart_asa_client.app_address,
             ),
             params=CommonAppCallParams(
-                static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                static_fee=min_fee_2x,
                 signer=reserve_and_clawback.signer,
                 sender=reserve_and_clawback.address,
             ),
@@ -336,12 +328,13 @@ class TestBurn:
 
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_unauthorized(
-        self, smart_asa_client: SmartAsaClient, account_with_supply: SigningAccount
+        self,
+        min_fee_2x: AlgoAmount,
+        smart_asa_client: SmartAsaClient,
+        account_with_supply: SigningAccount,
     ) -> None:
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         with pytest.raises(LogicError, match=err.UNAUTHORIZED_RESERVE):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -351,7 +344,7 @@ class TestBurn:
                     asset_receiver=smart_asa_client.app_address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=account_with_supply.signer,
                     sender=account_with_supply.address,
                 ),
@@ -360,14 +353,12 @@ class TestBurn:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_as_clawback(
         self,
+        min_fee_2x: AlgoAmount,
         smart_asa_client: SmartAsaClient,
         clawback: SigningAccount,
         account_with_supply: SigningAccount,
     ) -> None:
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
         with pytest.raises(LogicError, match=err.UNAUTHORIZED_RESERVE):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -377,7 +368,7 @@ class TestBurn:
                     asset_receiver=smart_asa_client.app_address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=clawback.signer,
                     sender=clawback.address,
                 ),
@@ -392,14 +383,12 @@ class TestBurn:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_clawback_burn(
         self,
+        min_fee_2x: AlgoAmount,
         smart_asa_client: SmartAsaClient,
         reserve: SigningAccount,
         account_with_supply: SigningAccount,
     ) -> None:
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
         with pytest.raises(LogicError, match=err.CLAWBACK_BURN):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -409,7 +398,7 @@ class TestBurn:
                     asset_receiver=smart_asa_client.app_address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=reserve.signer,
                     sender=reserve.address,
                 ),
@@ -420,6 +409,7 @@ class TestClawback:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_pass(
         self,
+        min_fee_2x: AlgoAmount,
         smart_asa_client: SmartAsaClient,
         clawback: SigningAccount,
         account_with_supply: SigningAccount,
@@ -438,9 +428,7 @@ class TestClawback:
             ).balance
             == 0
         )
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         smart_asa_client.send.asset_transfer(
             AssetTransferArgs(
                 xfer_asset=smart_asa.smart_asa_id,
@@ -449,7 +437,7 @@ class TestClawback:
                 asset_receiver=receiver.address,
             ),
             params=CommonAppCallParams(
-                static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                static_fee=min_fee_2x,
                 signer=clawback.signer,
                 sender=clawback.address,
             ),
@@ -476,15 +464,13 @@ class TestClawback:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_unauthorized(
         self,
+        min_fee_2x: AlgoAmount,
         smart_asa_client: SmartAsaClient,
         eve: SigningAccount,
         account_with_supply: SigningAccount,
         receiver: SigningAccount,
     ) -> None:
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
         with pytest.raises(LogicError, match=err.UNAUTHORIZED_CLAWBACK):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -494,7 +480,7 @@ class TestClawback:
                     asset_receiver=receiver.address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=eve.signer,
                     sender=eve.address,
                 ),
@@ -505,6 +491,7 @@ class TestRegularTransfer:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_pass_transfer(
         self,
+        min_fee_2x: AlgoAmount,
         smart_asa_client: SmartAsaClient,
         account_with_supply: SigningAccount,
         receiver: SigningAccount,
@@ -522,9 +509,7 @@ class TestRegularTransfer:
             ).balance
             == 0
         )
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         smart_asa_client.send.asset_transfer(
             AssetTransferArgs(
                 xfer_asset=smart_asa.smart_asa_id,
@@ -533,7 +518,7 @@ class TestRegularTransfer:
                 asset_receiver=receiver.address,
             ),
             params=CommonAppCallParams(
-                static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                static_fee=min_fee_2x,
                 signer=account_with_supply.signer,
                 sender=account_with_supply.address,
             ),
@@ -569,6 +554,7 @@ class TestRegularTransfer:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_global_frozen(
         self,
+        min_fee_2x: AlgoAmount,
         smart_asa_client: SmartAsaClient,
         freeze: SigningAccount,
         account_with_supply: SigningAccount,
@@ -585,9 +571,7 @@ class TestRegularTransfer:
             ),
         )
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         with pytest.raises(LogicError, match=err.GLOBAL_FROZEN):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -597,7 +581,7 @@ class TestRegularTransfer:
                     asset_receiver=receiver.address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=account_with_supply.signer,
                     sender=account_with_supply.address,
                 ),
@@ -606,6 +590,7 @@ class TestRegularTransfer:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_frozen_sender(
         self,
+        min_fee_2x: AlgoAmount,
         smart_asa_client: SmartAsaClient,
         freeze: SigningAccount,
         account_with_supply: SigningAccount,
@@ -623,9 +608,7 @@ class TestRegularTransfer:
             ),
         )
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         with pytest.raises(LogicError, match=err.SENDER_FROZEN):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -635,7 +618,7 @@ class TestRegularTransfer:
                     asset_receiver=receiver.address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=account_with_supply.signer,
                     sender=account_with_supply.address,
                 ),
@@ -644,6 +627,7 @@ class TestRegularTransfer:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_frozen_receiver(
         self,
+        min_fee_2x: AlgoAmount,
         smart_asa_client: SmartAsaClient,
         freeze: SigningAccount,
         account_with_supply: SigningAccount,
@@ -661,9 +645,7 @@ class TestRegularTransfer:
             ),
         )
         smart_asa = smart_asa_client.state.global_state
-        sp = smart_asa_client.algorand.client.algod.suggested_params()
-        sp.flat_fee = True
-        sp.fee = sp.min_fee * 2
+
         with pytest.raises(LogicError, match=err.RECEIVER_FROZEN):
             smart_asa_client.send.asset_transfer(
                 AssetTransferArgs(
@@ -673,7 +655,7 @@ class TestRegularTransfer:
                     asset_receiver=receiver.address,
                 ),
                 params=CommonAppCallParams(
-                    static_fee=AlgoAmount.from_micro_algo(sp.fee),
+                    static_fee=min_fee_2x,
                     signer=account_with_supply.signer,
                     sender=account_with_supply.address,
                 ),

@@ -46,3 +46,7 @@ INVALID_METADATA_HASH_LENGTH = "Invalid Metadata Hash length, must be 32 bytes"
 SELF_MINT = "Forbidden self minting"
 OVER_MINT = "Forbidden over minting"
 CLAWBACK_BURN = "Forbidden clawback burning"
+
+INVALID_ASA_METADATA_REGISTRY_MBR_PAYMENT = "Must pay MBR to the ASA Metadata Registry"
+INVALID_ASA_METADATA_REGISTRY_CALL = "Must call the ASA Metadata Registry"
+INVALID_CTRL_ASA_RBAC_RECONFIG = "Must grant Controlled ASA RBAC to the Smart ASA"
