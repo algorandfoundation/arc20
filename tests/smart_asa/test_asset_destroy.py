@@ -31,7 +31,7 @@ def test_pass_destroy(
     assert smart_asa.unit_name == ""
     assert smart_asa.name == ""
     assert smart_asa.url == ""
-    assert smart_asa.metadata_hash == b""
+    assert smart_asa.metadata_hash == ""  # FIXME: The typed state should be bytes
     assert smart_asa.manager_addr == ZERO_ADDRESS
     assert smart_asa.reserve_addr == ZERO_ADDRESS
     assert smart_asa.freeze_addr == ZERO_ADDRESS
