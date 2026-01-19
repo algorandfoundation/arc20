@@ -86,7 +86,7 @@ class Arc20Interface(ARC4Contract, ABC):
         pass
 
     @abstractmethod
-    @arc4.abimethod
+    @arc4.abimethod(allow_actions=["DeleteApplication"])
     def asset_destroy(self, *, destroy_asset: Asset) -> None:
         pass
 
