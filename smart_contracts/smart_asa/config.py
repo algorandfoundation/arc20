@@ -10,8 +10,6 @@ LOCAL_UINTS: Final[int] = 2
 TOTAL: Final[int] = 2**64 - 1
 DECIMALS: Final[int] = 0
 DEFAULT_FROZEN: Final[bool] = True
-UNIT_NAME: Final[str] = "ARC-20"
-NAME: Final[str] = "ARC-20 Smart ASA"
 
 # Smart ASA
 METADATA_HASH_LENGTH: Final[int] = 32
