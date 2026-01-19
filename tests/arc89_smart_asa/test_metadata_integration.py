@@ -37,7 +37,7 @@ def test_registry_call(
         body=MetadataBody(metadata_body),
         flags=MetadataFlags(
             irreversible=IrreversibleFlags(arc89_native=True),
-            reversible=ReversibleFlags(arc20=True, arc62=False),
+            reversible=ReversibleFlags(arc20=True, arc62=True),
         ),
         deprecated_by=0,
     )
