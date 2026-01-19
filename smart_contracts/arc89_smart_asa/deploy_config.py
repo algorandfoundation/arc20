@@ -52,7 +52,7 @@ ASA_METADATA_HASH: Final[bytes] = 32 * b"\x00"  # Mutable metadata
 # ==============================================================================
 
 METADATA_FLAGS = MetadataFlags(
-    reversible=ReversibleFlags(arc20=True, arc62=False),
+    reversible=ReversibleFlags(arc20=True, arc62=True),
     irreversible=IrreversibleFlags(arc3=True, arc89_native=True, immutable=False),
 )
 
@@ -62,7 +62,8 @@ ARC3_METADATA_JSON = {
     "decimals": ASA_DECIMALS,
     "unitName": ASA_UNIT_NAME,
     "properties": {
-        "arc-20": {"application-id": 0}  # Update after Smart ASA App deployment
+        "arc-20": {"application-id": 0},  # Update after Smart ASA App deployment
+        "arc-62": {"application-id": 0},  # Update after Smart ASA App deployment
     },
 }
 
@@ -192,6 +193,9 @@ def deploy() -> None:
     if not metadata_exists:
         # Update Asset Metadata
         ARC3_METADATA_JSON["properties"]["arc-20"][
+            "application-id"
+        ] = arc89_smart_asa_app_client.app_id
+        ARC3_METADATA_JSON["properties"]["arc-62"][
             "application-id"
         ] = arc89_smart_asa_app_client.app_id
 
