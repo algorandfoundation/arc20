@@ -12,7 +12,7 @@ def test_pass_create(smart_asa_client_no_asset: SmartAsaClient) -> None:
     assert state.unit_name == ""
     assert state.name == ""
     assert state.url == ""
-    assert state.metadata_hash == ""
+    assert state.metadata_hash == b""
     assert state.manager_addr == ZERO_ADDRESS
     assert state.reserve_addr == ZERO_ADDRESS
     assert state.freeze_addr == ZERO_ADDRESS
