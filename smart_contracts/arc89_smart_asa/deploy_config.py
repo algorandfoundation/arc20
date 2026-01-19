@@ -34,7 +34,7 @@ from smart_contracts.arc89_smart_asa.template_vars import ARC89_APP_ID
 
 logger = logging.getLogger(__name__)
 
-APP_FUNDS: Final[AlgoAmount] = AlgoAmount(algo=100_00)
+APP_FUNDS: Final[AlgoAmount] = AlgoAmount(micro_algo=100_000)
 
 # ==============================================================================
 # ASSET CREATION PARAMETERS
@@ -147,65 +147,72 @@ def deploy() -> None:
     )
     logger.info(f"Smart ASA Application ID: {arc89_smart_asa_app_client.app_id}")
 
-    algorand.account.ensure_funded_from_environment(
-        account_to_fund=arc89_smart_asa_app_client.app_address,
-        min_spending_balance=APP_FUNDS,
-    )
+    smart_asa_id = arc89_smart_asa_app_client.state.global_state.smart_asa_id
 
-    arc90_uri = Arc90Uri(
-        netauth=registry_deployment.arc90_uri_netauth,
-        app_id=registry_deployment.app_id,
-        box_name=None,
-        compliance=Arc90Compliance((20, 89)),  # ARC-20, ARC-89
-    )
-    assert arc90_uri.is_partial
-    logger.info(f"Smart ASA Metadata Partial URI: {arc90_uri.to_uri()}")
+    if not smart_asa_id:
+        algorand.account.ensure_funded_from_environment(
+            account_to_fund=arc89_smart_asa_app_client.app_address,
+            min_spending_balance=APP_FUNDS,
+        )
 
-    sp = arc89_smart_asa_app_client.algorand.client.algod.suggested_params()
-    sp.flat_fee = True
-    sp.fee = sp.min_fee * 2  # type: ignore
+        arc90_uri = Arc90Uri(
+            netauth=registry_deployment.arc90_uri_netauth,
+            app_id=registry_deployment.app_id,
+            box_name=None,
+            compliance=Arc90Compliance((20, 89)),  # ARC-20, ARC-89
+        )
+        assert arc90_uri.is_partial
+        logger.info(f"Smart ASA Metadata Partial URI: {arc90_uri.to_uri()}")
 
-    asset_id = arc89_smart_asa_app_client.send.asset_create(
-        AssetCreateArgs(
-            total=ASA_TOTAL,
-            decimals=ASA_DECIMALS,
-            default_frozen=ASA_DEFAULT_FROZEN,
-            unit_name=ASA_UNIT_NAME,
-            name=ASA_NAME,
-            metadata_hash=ASA_METADATA_HASH,
-            url=arc90_uri.to_uri(),
-            manager_addr=deployer.address,
-            reserve_addr=arc89_smart_asa_app_client.app_address,
-            clawback_addr=deployer.address,
-            freeze_addr=deployer.address,
-        ),
-        params=CommonAppCallParams(static_fee=AlgoAmount.from_micro_algo(sp.fee)),
-    ).abi_return
-    logger.info(f"Smart ASA ID: {asset_id}")
+        sp = arc89_smart_asa_app_client.algorand.client.algod.suggested_params()
+        sp.flat_fee = True
+        sp.fee = sp.min_fee * 2  # type: ignore
 
-    # Update Asset Metadata
-    ARC3_METADATA_JSON["properties"]["arc-20"][
-        "application-id"
-    ] = arc89_smart_asa_app_client.app_id
+        smart_asa_id = arc89_smart_asa_app_client.send.asset_create(
+            AssetCreateArgs(
+                total=ASA_TOTAL,
+                decimals=ASA_DECIMALS,
+                default_frozen=ASA_DEFAULT_FROZEN,
+                unit_name=ASA_UNIT_NAME,
+                name=ASA_NAME,
+                metadata_hash=ASA_METADATA_HASH,
+                url=arc90_uri.to_uri(),
+                manager_addr=deployer.address,
+                reserve_addr=arc89_smart_asa_app_client.app_address,
+                clawback_addr=deployer.address,
+                freeze_addr=deployer.address,
+            ),
+            params=CommonAppCallParams(static_fee=AlgoAmount.from_micro_algo(sp.fee)),
+        ).abi_return
+        logger.info(f"Smart ASA ID: {smart_asa_id}")
 
-    smart_asa_metadata = AssetMetadata.from_json(
-        asset_id=asset_id,
-        json_obj=ARC3_METADATA_JSON,
-        flags=METADATA_FLAGS,
-        deprecated_by=DEPRECATED_BY,
-        arc3_compliant=METADATA_FLAGS.irreversible.arc3,
-    )
-    metadata_composer = registry_client.write.build_create_metadata_group(
-        asset_manager=deployer,
-        metadata=smart_asa_metadata,
-    )
+    metadata_exists = registry_client.read.arc89_check_metadata_exists(
+        asset_id=smart_asa_id
+    ).metadata_exists
+    if not metadata_exists:
+        # Update Asset Metadata
+        ARC3_METADATA_JSON["properties"]["arc-20"][
+            "application-id"
+        ] = arc89_smart_asa_app_client.app_id
 
-    call_asa_metadata_registry(
-        arc89_smart_asa_client=arc89_smart_asa_app_client,
-        manager=deployer,
-        metadata_composer=metadata_composer,
-        has_mbr_payment=True,
-    )
+        smart_asa_metadata = AssetMetadata.from_json(
+            asset_id=smart_asa_id,
+            json_obj=ARC3_METADATA_JSON,
+            flags=METADATA_FLAGS,
+            deprecated_by=DEPRECATED_BY,
+            arc3_compliant=METADATA_FLAGS.irreversible.arc3,
+        )
+        metadata_composer = registry_client.write.build_create_metadata_group(
+            asset_manager=deployer,
+            metadata=smart_asa_metadata,
+        )
 
-    metadata = registry_client.read.get_asset_metadata(asset_id=asset_id)
+        call_asa_metadata_registry(
+            arc89_smart_asa_client=arc89_smart_asa_app_client,
+            manager=deployer,
+            metadata_composer=metadata_composer,
+            has_mbr_payment=True,
+        )
+
+    metadata = registry_client.read.get_asset_metadata(asset_id=smart_asa_id)
     logger.info(f"ARC-89 Smart ASA Metadata: {metadata.json}")
