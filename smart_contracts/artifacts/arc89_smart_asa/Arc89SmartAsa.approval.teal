@@ -114,11 +114,11 @@ main_after_if_else@2:
     // ):
     txn NumAppArgs
     bz main___algopy_default_create@24
-    pushbytess 0x48641645 0x3a045bdc // method "asset_opt_in(uint64,axfer)void", method "asset_close_out(uint64,address)void"
+    pushbytess 0x48641645 0x3a045bdc 0xed64452f // method "asset_opt_in(uint64,axfer)void", method "asset_close_out(uint64,address)void", method "asset_destroy(uint64)void"
     txna ApplicationArgs 0
-    match main_asset_opt_in_route@5 main_asset_close_out_route@6
+    match main_asset_opt_in_route@5 main_asset_close_out_route@6 main_asset_destroy_route@7
 
-main_switch_case_next@7:
+main_switch_case_next@8:
     // smart_contracts/arc89_smart_asa/contract.py:53-62
     // class Arc89SmartAsa(
     //     SmartAsa,
@@ -135,10 +135,21 @@ main_switch_case_next@7:
     assert
     txn ApplicationID
     assert
-    pushbytess 0xcc36986c 0x5cc2c535 0xe7ecd5a8 0xf8819feb 0x7eacb775 0xa133d581 0xff53adef 0xed64452f 0x2e9b9038 0x979b9972 0x48a63cc9 0x46ad0d52 // method "asa_metadata_registry_init(uint64,uint64,bool)void", method "arc62_get_circulating_supply(uint64)uint64", method "asset_create(uint64,uint32,bool,string,string,string,byte[],address,address,address,address)uint64", method "asset_config(uint64,uint64,uint32,bool,string,string,string,byte[],address,address,address,address)void", method "asset_transfer(uint64,uint64,address,address)void", method "asset_freeze(uint64,bool)void", method "account_freeze(uint64,address,bool)void", method "asset_destroy(uint64)void", method "get_asset_config(uint64)(uint64,uint32,bool,string,string,string,byte[],address,address,address,address)", method "get_asset_is_frozen(uint64)bool", method "get_account_is_frozen(uint64,address)bool", method "get_circulating_supply(uint64)uint64"
+    pushbytess 0xcc36986c 0x5cc2c535 0xe7ecd5a8 0xf8819feb 0x7eacb775 0xa133d581 0xff53adef 0x2e9b9038 0x979b9972 0x48a63cc9 0x46ad0d52 // method "asa_metadata_registry_init(uint64,uint64,bool)void", method "arc62_get_circulating_supply(uint64)uint64", method "asset_create(uint64,uint32,bool,string,string,string,byte[],address,address,address,address)uint64", method "asset_config(uint64,uint64,uint32,bool,string,string,string,byte[],address,address,address,address)void", method "asset_transfer(uint64,uint64,address,address)void", method "asset_freeze(uint64,bool)void", method "account_freeze(uint64,address,bool)void", method "get_asset_config(uint64)(uint64,uint32,bool,string,string,string,byte[],address,address,address,address)", method "get_asset_is_frozen(uint64)bool", method "get_account_is_frozen(uint64,address)bool", method "get_circulating_supply(uint64)uint64"
     txna ApplicationArgs 0
-    match asa_metadata_registry_init arc62_get_circulating_supply asset_create asset_config asset_transfer asset_freeze account_freeze asset_destroy get_asset_config get_asset_is_frozen get_account_is_frozen get_circulating_supply
+    match asa_metadata_registry_init arc62_get_circulating_supply asset_create asset_config asset_transfer asset_freeze account_freeze get_asset_config get_asset_is_frozen get_account_is_frozen get_circulating_supply
     err
+
+main_asset_destroy_route@7:
+    // smart_contracts/smart_asa/contract.py:486
+    // @arc4.abimethod(allow_actions=["DeleteApplication"])
+    txn OnCompletion
+    pushint 5 // DeleteApplication
+    ==
+    txn ApplicationID
+    &&
+    assert
+    b asset_destroy
 
 main_asset_close_out_route@6:
     // smart_contracts/smart_asa/contract.py:456
@@ -1905,7 +1916,7 @@ asset_close_out_after_if_else@5:
 // smart_contracts.smart_asa.contract.SmartAsa.asset_destroy[routing]() -> void:
 asset_destroy:
     // smart_contracts/smart_asa/contract.py:486
-    // @arc4.abimethod
+    // @arc4.abimethod(allow_actions=["DeleteApplication"])
     txna ApplicationArgs 1
     dup
     len
@@ -2010,7 +2021,7 @@ asset_destroy:
     intc_0 // 0
     app_global_put
     // smart_contracts/smart_asa/contract.py:486
-    // @arc4.abimethod
+    // @arc4.abimethod(allow_actions=["DeleteApplication"])
     intc_1 // 1
     return
 
