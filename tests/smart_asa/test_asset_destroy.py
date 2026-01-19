@@ -1,6 +1,5 @@
 import pytest
 from algokit_utils import AlgoAmount, CommonAppCallParams, LogicError, SigningAccount
-from algosdk.constants import ZERO_ADDRESS
 from algosdk.error import AlgodHTTPError
 
 import smart_contracts.errors as err
@@ -14,7 +13,7 @@ def test_pass_destroy(
     min_fee_2x: AlgoAmount, smart_asa_client: SmartAsaClient, manager: SigningAccount
 ) -> None:
     smart_asa = smart_asa_client.state.global_state
-    smart_asa_client.send.asset_destroy(
+    smart_asa_client.send.delete.asset_destroy(
         AssetDestroyArgs(destroy_asset=smart_asa.smart_asa_id),
         params=CommonAppCallParams(
             static_fee=min_fee_2x,
@@ -22,22 +21,8 @@ def test_pass_destroy(
             sender=manager.address,
         ),
     )
-    with pytest.raises(AlgodHTTPError, match="asset does not exist"):
+    with pytest.raises(AlgodHTTPError, match="application does not exist"):
         smart_asa_client.algorand.asset.get_by_id(smart_asa.smart_asa_id)
-    smart_asa = smart_asa_client.state.global_state
-    assert smart_asa.total == 0
-    assert smart_asa.decimals == 0
-    assert not smart_asa.default_frozen
-    assert smart_asa.unit_name == ""
-    assert smart_asa.name == ""
-    assert smart_asa.url == ""
-    assert smart_asa.metadata_hash == ""  # FIXME: The typed state should be bytes
-    assert smart_asa.manager_addr == ZERO_ADDRESS
-    assert smart_asa.reserve_addr == ZERO_ADDRESS
-    assert smart_asa.freeze_addr == ZERO_ADDRESS
-    assert smart_asa.clawback_addr == ZERO_ADDRESS
-    assert smart_asa.smart_asa_id == 0
-    assert not smart_asa.global_frozen
 
 
 def test_fail_missing_ctrl_asa() -> None:
@@ -53,7 +38,7 @@ def test_fail_unauthorized_manager(
 ) -> None:
     smart_asa = smart_asa_client.state.global_state
     with pytest.raises(LogicError, match=err.UNAUTHORIZED_MANAGER):
-        smart_asa_client.send.asset_destroy(
+        smart_asa_client.send.delete.asset_destroy(
             AssetDestroyArgs(destroy_asset=smart_asa.smart_asa_id),
             params=CommonAppCallParams(
                 static_fee=min_fee_2x,
@@ -72,7 +57,7 @@ def test_fail_still_in_circulation(
 ) -> None:
     smart_asa = smart_asa_client.state.global_state
     with pytest.raises(LogicError, match="creator is holding only"):
-        smart_asa_client.send.asset_destroy(
+        smart_asa_client.send.delete.asset_destroy(
             AssetDestroyArgs(destroy_asset=smart_asa.smart_asa_id),
             params=CommonAppCallParams(
                 static_fee=min_fee_2x,
