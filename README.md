@@ -9,6 +9,16 @@ The implementation offers:
 - A [Smart ASA with ASA Metadata Registry integration](#smart-asa-with-asa-metadata-registry-integration)
 (**RECOMMENDED**).
 
+The reference implementation:
+
+- Stores Smart ASA opt-in state in the Local State of the Smart ASA Application;
+- Allows a single Controlled ASA per Smart ASA Application.
+
+Future application enhancements may include:
+
+- Storing Smart ASA opt-in state in Boxes;
+- Allowing multiple Controlled ASAs per Smart ASA Application.
+
 ## Smart ASA
 
 The ASA URL (`au`) and the ASA Metadata Hash (`am`) fields of the underlying Controlled

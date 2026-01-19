@@ -483,10 +483,10 @@ class SmartAsa(
                 asset_receiver=close_to,
             )
 
-    @arc4.abimethod
+    @arc4.abimethod(allow_actions=["DeleteApplication"])
     def asset_destroy(self, *, destroy_asset: Asset) -> None:
         """
-        Destroy the Controlled ASA
+        Destroy the Smart ASA
 
         Args:
             destroy_asset: Smart ASA ID to destroy
