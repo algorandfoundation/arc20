@@ -15,6 +15,7 @@ from algopy import (
 )
 
 from smart_contracts import errors as err
+from smart_contracts.arc62_interface import Arc62Interface
 from smart_contracts.arc89_smart_asa.template_vars import ARC89_APP_ID
 from smart_contracts.avm_library import inner_asset_config
 from smart_contracts.smart_asa import config as cfg
@@ -51,6 +52,7 @@ def _assert_valid_controlled_asa_reconfig(txn: gtxn.Transaction, asset: Asset) -
 
 class Arc89SmartAsa(
     SmartAsa,
+    Arc62Interface,
     state_totals=StateTotals(
         global_bytes=cfg.GLOBAL_BYTES,
         global_uints=cfg.GLOBAL_UINTS,
@@ -100,3 +102,22 @@ class Arc89SmartAsa(
             freeze=Global.current_application_address,
             clawback=Global.current_application_address,
         )
+
+    @arc4.abimethod(readonly=True)
+    def arc62_get_circulating_supply(self, asset_id: UInt64) -> UInt64:
+        """
+        Get Smart ASA circulating supply
+
+        Args:
+            asset_id: Smart ASA ID
+
+        Returns:
+            Smart ASA circulating supply
+        """
+        asset = Asset(asset_id)
+
+        # Preconditions
+        self._assert_common_preconditions(asset)
+
+        # Effects
+        return self._circulating_supply(asset)
