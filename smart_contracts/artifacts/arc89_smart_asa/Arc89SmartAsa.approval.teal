@@ -1792,7 +1792,7 @@ asset_close_out:
     // ), err.CLOSE_OUT_WRONG_CLOSE_TO
     assert // Wrong Close Out on Close Out
     // smart_contracts/smart_asa/contract.py:467
-    // (creator, exists) = op.AssetParamsGet.asset_creator(close_asset.id)
+    // creator, exists = op.AssetParamsGet.asset_creator(close_asset.id)
     asset_params_get AssetCreator
     // smart_contracts/smart_asa/contract.py:468
     // if exists:  # Smart ASA has not been destroyed

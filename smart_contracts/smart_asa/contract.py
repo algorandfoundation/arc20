@@ -464,7 +464,7 @@ class SmartAsa(
         """
         # Preconditions
         self._assert_close_out_preconditions(close_asset)
-        (creator, exists) = op.AssetParamsGet.asset_creator(close_asset.id)
+        creator, exists = op.AssetParamsGet.asset_creator(close_asset.id)
         if exists:  # Smart ASA has not been destroyed
             self._assert_close_out_not_destroyed_preconditions(close_asset, creator)
             if (
