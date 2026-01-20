@@ -1,7 +1,7 @@
 [tool.poetry]
 package-mode = false
 name = "smart-asa"
-version = "0.1.0"
+version = "1.0.0"
 description = "Smart ASA (ARC-20) reference implementation"
 license = "GPL-3.0-only"
 authors = ["cusma <cosimo.bassi@algorand.foundation>"]
