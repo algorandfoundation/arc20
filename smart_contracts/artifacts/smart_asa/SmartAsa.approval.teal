@@ -845,16 +845,16 @@ asset_config_after_if_else@5:
 asset_config_after_if_else@7:
     // smart_contracts/smart_asa/contract.py:358
     // assert total >= self._circulating_supply(config_asset), err.INVALID_TOTAL
-    dig 11
+    uncover 11
     callsub _circulating_supply
-    dig 11
+    uncover 11
     dup
     uncover 2
     >=
     assert // Invalid Total, must be >= circulating supply
     // smart_contracts/smart_asa/contract.py:363
     // decimals=decimals.as_uint64(),
-    dig 10
+    uncover 10
     btoi
     // smart_contracts/smart_asa/contract.py:189
     // self.total = total
@@ -869,47 +869,47 @@ asset_config_after_if_else@7:
     // smart_contracts/smart_asa/contract.py:191
     // self.default_frozen = default_frozen
     bytec 9 // "default_frozen"
-    dig 9
+    uncover 9
     app_global_put
     // smart_contracts/smart_asa/contract.py:192
     // self.unit_name = unit_name
     bytec 11 // "unit_name"
-    dig 8
+    uncover 8
     app_global_put
     // smart_contracts/smart_asa/contract.py:193
     // self.name = name
     bytec 12 // "name"
-    dig 7
+    uncover 7
     app_global_put
     // smart_contracts/smart_asa/contract.py:194
     // self.url = url
     bytec 13 // "url"
-    dig 6
+    uncover 6
     app_global_put
     // smart_contracts/smart_asa/contract.py:195
     // self.metadata_hash = metadata_hash
     bytec 14 // "metadata_hash"
-    dig 5
+    uncover 5
     app_global_put
     // smart_contracts/smart_asa/contract.py:196
     // self.manager_addr = manager_addr
     bytec 7 // "manager_addr"
-    dig 4
+    uncover 4
     app_global_put
     // smart_contracts/smart_asa/contract.py:197
     // self.reserve_addr = reserve_addr
     bytec_1 // "reserve_addr"
-    dig 3
+    uncover 3
     app_global_put
     // smart_contracts/smart_asa/contract.py:198
     // self.freeze_addr = freeze_addr
     bytec 5 // "freeze_addr"
-    dig 2
+    uncover 2
     app_global_put
     // smart_contracts/smart_asa/contract.py:199
     // self.clawback_addr = clawback_addr
     bytec_2 // "clawback_addr"
-    dig 1
+    swap
     app_global_put
     // smart_contracts/smart_asa/contract.py:315
     // @arc4.abimethod
@@ -947,7 +947,7 @@ asset_transfer:
     assert // invalid number of bytes for arc4.static_array<arc4.uint8, 32>
     txna ApplicationArgs 4
     dup
-    cover 3
+    cover 4
     len
     intc_3 // 32
     ==
@@ -976,7 +976,7 @@ asset_transfer:
     // # Forbidden self-mint (to Creator) and over-mint (> total).
     // assert asset_receiver != Global.current_application_address, err.SELF_MINT
     global CurrentApplicationAddress
-    dig 1
+    dig 2
     dup
     uncover 2
     !=
@@ -1045,7 +1045,7 @@ asset_transfer:
     bz asset_transfer_after_if_else@10
     // smart_contracts/smart_asa/contract.py:96
     // assert not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN
-    dup
+    dig 1
     intc_0 // 0
     bytec 4 // "account_frozen"
     app_local_get_ex
@@ -1062,10 +1062,10 @@ asset_transfer_after_if_else@10:
     //     asset_sender=asset_sender,
     //     asset_receiver=asset_receiver,
     // )
-    dig 3
-    dig 3
-    dig 3
-    dig 3
+    uncover 3
+    uncover 3
+    uncover 2
+    uncover 3
     callsub inner_asset_transfer
     // smart_contracts/smart_asa/contract.py:375
     // @arc4.abimethod
@@ -1075,7 +1075,7 @@ asset_transfer_after_if_else@10:
 asset_transfer_else_body@3:
     // smart_contracts/smart_asa/contract.py:399
     // elif asset_receiver == Global.current_application_address:
-    dup
+    dig 1
     global CurrentApplicationAddress
     ==
     bz asset_transfer_else_body@5
@@ -1093,7 +1093,7 @@ asset_transfer_else_body@3:
     assert // Unauthorized Reserve
     // smart_contracts/smart_asa/contract.py:103
     // self.account_smart_asa_id[asset_sender] == self.smart_asa_id
-    dig 2
+    dig 1
     intc_0 // 0
     bytec_3 // "account_smart_asa_id"
     app_local_get_ex
@@ -1127,8 +1127,7 @@ asset_transfer_else_body@3:
     bz asset_transfer_after_if_else@10
     // smart_contracts/smart_asa/contract.py:107
     // assert not self.account_frozen[asset_sender], err.SENDER_FROZEN
-    dig 1
-    dup
+    dupn 2
     intc_0 // 0
     bytec 4 // "account_frozen"
     app_local_get_ex
@@ -1158,7 +1157,7 @@ asset_transfer_else_body@5:
     bz asset_transfer_else_body@7
     // smart_contracts/smart_asa/contract.py:116
     // self.account_smart_asa_id[asset_sender] == self.smart_asa_id
-    dig 1
+    dup
     intc_0 // 0
     bytec_3 // "account_smart_asa_id"
     app_local_get_ex
@@ -1178,7 +1177,7 @@ asset_transfer_else_body@5:
     assert // Invalid Controlled ASA ID
     // smart_contracts/smart_asa/contract.py:119
     // self.account_smart_asa_id[asset_receiver] == self.smart_asa_id
-    dig 1
+    dig 2
     intc_0 // 0
     bytec_3 // "account_smart_asa_id"
     app_local_get_ex
@@ -1195,7 +1194,7 @@ asset_transfer_else_body@7:
     // smart_contracts/smart_asa/contract.py:125
     // assert Txn.sender == asset_sender, err.UNAUTHORIZED_CLAWBACK
     txn Sender
-    dig 2
+    dig 1
     dup
     cover 2
     ==
@@ -1222,7 +1221,7 @@ asset_transfer_else_body@7:
     assert // Invalid Controlled ASA ID
     // smart_contracts/smart_asa/contract.py:131
     // self.account_smart_asa_id[asset_receiver] == self.smart_asa_id
-    dig 2
+    dig 3
     dup
     cover 2
     intc_0 // 0

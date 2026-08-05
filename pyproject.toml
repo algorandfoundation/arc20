@@ -21,16 +21,15 @@ asa-metadata-registry = { git = "https://github.com/algorandfoundation/arc89.git
 [tool.poetry.group.dev.dependencies]
 algokit-client-generator = "^2.2.0"
 black = {extras = ["d"], version = "26.5.1"}
-ruff = ">=0.15.9,<0.17.0"
-mypy = "^1.19.1"
-pytest = "^9.0.3"
+ruff = "^0.16.1"
+mypy = "^2.1.0"
+pytest = "^9.1.1"
 pytest-cov = "^7.1.0"
 pytest-sugar = "^1.1.1"
-pip-audit = "^2.10.0"
-pre-commit = "^4.5.1"
-puyapy = "^5.7.1"
-urllib3 = "^2.6.3"
-pip = "^26.0"
+pip-audit = "^2.10.1"
+pre-commit = "^4.6.1"
+puyapy = "^5.9.0"
+click = "^8.4.2"
 
 [build-system]
 requires = ["poetry-core"]
