@@ -15,7 +15,7 @@ keywords = ["algorand", "blockchain", "tokenization"]
 python = "^3.12"
 algokit-utils = "^4.2.3"
 python-dotenv = "^1.2.2"
-algorand-python = "^3.4.0"
+algorand-python = ">=3.4,<5.0"
 asa-metadata-registry = { git = "https://github.com/algorandfoundation/arc89.git", branch = "main" }
 
 [tool.poetry.group.dev.dependencies]
