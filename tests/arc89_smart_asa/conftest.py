@@ -10,7 +10,7 @@ from algokit_utils import (
 from algokit_utils.config import config
 from algosdk.atomic_transaction_composer import TransactionWithSigner
 from asa_metadata_registry import Arc90Compliance, Arc90Uri, AsaMetadataRegistry
-from asa_metadata_registry._generated.asa_metadata_registry_client import (
+from asa_metadata_registry.generated.asa_metadata_registry_client import (
     AsaMetadataRegistryFactory,
 )
 

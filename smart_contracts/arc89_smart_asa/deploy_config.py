@@ -23,11 +23,11 @@ from asa_metadata_registry import (
     MetadataFlags,
     ReversibleFlags,
 )
-from asa_metadata_registry._generated.asa_metadata_registry_client import (
+from asa_metadata_registry.deployments import RegistryDeployment
+from asa_metadata_registry.generated.asa_metadata_registry_client import (
     AsaMetadataRegistryClient,
     AsaMetadataRegistryFactory,
 )
-from asa_metadata_registry.deployments import RegistryDeployment
 
 from helpers.metadata import call_asa_metadata_registry
 from smart_contracts.arc89_smart_asa.template_vars import ARC89_APP_ID
