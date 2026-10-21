@@ -98,23 +98,20 @@ class SmartAsa(
     def _assert_burning_preconditions(self, *, asset_sender: Account) -> None:
         # Burn permission restricted to Reserve.
         assert Txn.sender == self.reserve_addr, err.UNAUTHORIZED_RESERVE
-        # In case of Controlled ASA destroyed and re-created the Smart ADA ID in Local State could be outdated.
-        assert (
-            self.account_smart_asa_id[asset_sender] == self.smart_asa_id
-        ), err.INVALID_CTRL_ASA
         assert not self.global_frozen, err.GLOBAL_FROZEN
+        # A Reserve that is also Clawback can burn from any holder, opted-in or not.
         if self.reserve_addr != self.clawback_addr:
+            # In case of Controlled ASA destroyed and re-created the Smart ADA ID in Local State could be outdated.
+            assert (
+                self.account_smart_asa_id[asset_sender] == self.smart_asa_id
+            ), err.INVALID_CTRL_ASA
             assert not self.account_frozen[asset_sender], err.SENDER_FROZEN
             # Forbidden clawback through burning (burned amount not from Reserve).
             assert asset_sender == self.reserve_addr, err.CLAWBACK_BURN
 
-    def _assert_clawback_preconditions(
-        self, *, asset_sender: Account, asset_receiver: Account
-    ) -> None:
-        # In the case of Controlled ASA destroyed and re-created, the Smart ADA ID in Local State could be outdated.
-        assert (
-            self.account_smart_asa_id[asset_sender] == self.smart_asa_id
-        ), err.INVALID_CTRL_ASA
+    def _assert_clawback_preconditions(self, *, asset_receiver: Account) -> None:
+        # As for native ASA, the clawed back holder needs no App Local State (e.g. after
+        # a ClearState). The receiver does, so clawed back units always have a frozen flag.
         assert (
             self.account_smart_asa_id[asset_receiver] == self.smart_asa_id
         ), err.INVALID_CTRL_ASA
@@ -170,6 +167,12 @@ class SmartAsa(
         assert not self.global_frozen, err.GLOBAL_FROZEN
         assert not self.account_frozen[Txn.sender], err.SENDER_FROZEN
         assert not self.account_frozen[close_to], err.CLOSE_TO_FROZEN
+
+    def _assert_valid_metadata_hash(self, metadata_hash: Bytes) -> None:
+        # Non-normative: stricter than ARC-20, which allows any `byte[]` length
+        assert (
+            metadata_hash.length == cfg.METADATA_HASH_LENGTH
+        ), err.INVALID_METADATA_HASH_LENGTH
 
     def _configure_smart_asa(
         self,
@@ -236,9 +239,7 @@ class SmartAsa(
         # Preconditions
         assert Txn.sender == Global.creator_address, err.UNAUTHORIZED
         assert not self.smart_asa_id, err.EXISTING_CTRL_ASA
-        assert (
-            metadata_hash.length == cfg.METADATA_HASH_LENGTH
-        ), err.INVALID_METADATA_HASH_LENGTH  # Non-normative
+        self._assert_valid_metadata_hash(metadata_hash)
 
         # Create the underlying Controlled ASA
         self.smart_asa_id = inner_asset_create(
@@ -349,6 +350,7 @@ class SmartAsa(
         # Preconditions
         self._assert_common_preconditions(config_asset)
         assert Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER
+        self._assert_valid_metadata_hash(metadata_hash)
         if reserve_addr.native != self.reserve_addr:
             assert self.reserve_addr != Global.zero_address, err.DISABLED_RESERVE
         if freeze_addr.native != self.freeze_addr:
@@ -399,9 +401,7 @@ class SmartAsa(
         elif asset_receiver == Global.current_application_address:
             self._assert_burning_preconditions(asset_sender=asset_sender)
         elif Txn.sender == self.clawback_addr:
-            self._assert_clawback_preconditions(
-                asset_sender=asset_sender, asset_receiver=asset_receiver
-            )
+            self._assert_clawback_preconditions(asset_receiver=asset_receiver)
         else:
             self._assert_regular_transfer_preconditions(
                 asset_sender=asset_sender, asset_receiver=asset_receiver
@@ -569,12 +569,15 @@ class SmartAsa(
             freeze_account: Account to check
 
         Returns:
-            Smart ASA account frozen status
+            Smart ASA account frozen status (True if the account is not opted in)
         """
         # Preconditions
         self._assert_common_preconditions(freeze_asset)
 
         # Effects
+        # A missing frozen flag counts as frozen (ARC-20 Security Considerations)
+        if not freeze_account.is_opted_in(Global.current_application_id):
+            return True
         return self.account_frozen[freeze_account]
 
     @arc4.abimethod(readonly=True, resource_encoding="index")

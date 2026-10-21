@@ -155,3 +155,19 @@ def test_fail_invalid_total(
             ),
             params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
         )
+
+
+@pytest.mark.parametrize("hash_length", [0, 31, 33])
+def test_fail_invalid_metadata_hash_length(
+    smart_asa_client: SmartAsaClient,
+    smart_asa_id: int,
+    manager: SigningAccount,
+    asa_config: SmartASAConfig,
+    hash_length: int,
+) -> None:
+    asa_config.metadata_hash = b"\x00" * hash_length
+    with pytest.raises(LogicError, match=err.INVALID_METADATA_HASH_LENGTH):
+        smart_asa_client.send.asset_config(
+            AssetConfigArgs(config_asset=smart_asa_id, **asa_config.dictify()),
+            params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
+        )

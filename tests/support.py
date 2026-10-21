@@ -6,6 +6,7 @@ import pytest
 from algokit_utils import (
     AlgoAmount,
     AlgorandClient,
+    AppClientBareCallParams,
     AssetOptInParams,
     AssetTransferParams,
     CommonAppCallParams,
@@ -75,6 +76,13 @@ def opt_in(client: AnySmartAsaClient, asset_id: int, account: SigningAccount) ->
             ),
         ),
         params=CommonAppCallParams(signer=account.signer, sender=account.address),
+    )
+
+
+def clear_state(client: AnySmartAsaClient, account: SigningAccount) -> None:
+    """Drops the account's App Local State; its Controlled ASA holding is kept."""
+    client.send.clear_state(
+        AppClientBareCallParams(signer=account.signer, sender=account.address)
     )
 
 

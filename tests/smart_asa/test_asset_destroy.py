@@ -7,6 +7,8 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     AssetDestroyArgs,
     SmartAsaClient,
 )
+from tests.conftest import SmartASAConfig
+from tests.support import clear_state, transfer
 
 
 def test_pass_destroy(
@@ -26,6 +28,38 @@ def test_pass_destroy(
     algod = smart_asa_client.algorand.client.algod
     with pytest.raises(AlgodHTTPError, match="application does not exist"):
         algod.application_info(smart_asa_client.app_id)
+    with pytest.raises(AlgodHTTPError, match="asset does not exist"):
+        smart_asa_client.algorand.asset.get_by_id(smart_asa_id)
+
+
+def test_pass_destroy_after_recovering_from_holder_without_local_state(
+    min_fee_2x: AlgoAmount,
+    asa_config: SmartASAConfig,
+    smart_asa_client: SmartAsaClient,
+    smart_asa_id: int,
+    manager: SigningAccount,
+    reserve_and_clawback: SigningAccount,
+    account_with_supply: SigningAccount,
+) -> None:
+    # A holder that cleared its App Local State can't block the destroy
+    clear_state(smart_asa_client, account_with_supply)
+    transfer(
+        smart_asa_client,
+        smart_asa_id,
+        signer=reserve_and_clawback,
+        asset_sender=account_with_supply.address,
+        asset_receiver=smart_asa_client.app_address,
+        asset_amount=asa_config.total,
+        fee=min_fee_2x,
+    )
+    smart_asa_client.send.delete.asset_destroy(
+        AssetDestroyArgs(destroy_asset=smart_asa_id),
+        params=CommonAppCallParams(
+            static_fee=min_fee_2x,
+            signer=manager.signer,
+            sender=manager.address,
+        ),
+    )
     with pytest.raises(AlgodHTTPError, match="asset does not exist"):
         smart_asa_client.algorand.asset.get_by_id(smart_asa_id)
 
