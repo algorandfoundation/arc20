@@ -11,7 +11,6 @@ from algopy import (
     UInt64,
     arc4,
     gtxn,
-    op,
 )
 
 from smart_contracts import errors as err
@@ -20,6 +19,7 @@ from smart_contracts.avm_library import (
     inner_asset_create,
     inner_asset_destroy,
     inner_asset_transfer,
+    inner_close_account,
 )
 from smart_contracts.avm_types import AssetConfig
 
@@ -154,17 +154,9 @@ class SmartAsa(
         ), err.CLOSE_OUT_WRONG_ASA
         assert asa_close_out_txn.sender == Txn.sender, err.CLOSE_OUT_WRONG_SENDER
         assert asa_close_out_txn.asset_amount == UInt64(0), err.CLOSE_OUT_WRONG_AMOUNT
+        # The Controlled ASA holding closes to its Creator (the Smart ASA App)
         assert (
-            asa_close_out_txn.asset_close_to != Global.zero_address
-        ), err.CLOSE_OUT_WRONG_CLOSE_TO
-
-    def _assert_close_out_not_destroyed_preconditions(
-        self, close_asset: Asset, asset_creator: Account
-    ) -> None:
-        asa_close_out_relative_idx = Txn.group_index + 1
-        asa_close_out_txn = gtxn.AssetTransferTransaction(asa_close_out_relative_idx)
-        assert (
-            asa_close_out_txn.asset_close_to == asset_creator
+            asa_close_out_txn.asset_close_to == Global.current_application_address
         ), err.CLOSE_OUT_WRONG_CLOSE_TO
         assert close_asset.id == self.smart_asa_id, err.INVALID_CTRL_ASA
 
@@ -464,23 +456,20 @@ class SmartAsa(
         """
         # Preconditions
         self._assert_close_out_preconditions(close_asset)
-        creator, exists = op.AssetParamsGet.asset_creator(close_asset.id)
-        if exists:  # Smart ASA has not been destroyed
-            self._assert_close_out_not_destroyed_preconditions(close_asset, creator)
-            # Closing out to the Creator needs no inner transfer: the Controlled ASA
-            # close-out that follows moves the whole balance, even if frozen.
-            if close_to != creator:
-                self._assert_transfer_allowed(
-                    asset_sender=Txn.sender, asset_receiver=close_to
-                )
+        # Closing out to the Creator needs no inner transfer: the Controlled ASA
+        # close-out that follows moves the whole balance, even if frozen.
+        if close_to != Global.current_application_address:
+            self._assert_transfer_allowed(
+                asset_sender=Txn.sender, asset_receiver=close_to
+            )
 
-                # Effects
-                inner_asset_transfer(
-                    xfer_asset=close_asset,
-                    asset_amount=close_asset.balance(Txn.sender),
-                    asset_sender=Txn.sender,
-                    asset_receiver=close_to,
-                )
+            # Effects
+            inner_asset_transfer(
+                xfer_asset=close_asset,
+                asset_amount=close_asset.balance(Txn.sender),
+                asset_sender=Txn.sender,
+                asset_receiver=close_to,
+            )
 
     @arc4.abimethod(allow_actions=["DeleteApplication"], resource_encoding="index")
     def asset_destroy(self, *, destroy_asset: Asset) -> None:
@@ -496,19 +485,8 @@ class SmartAsa(
 
         # Effects
         inner_asset_destroy(destroy_asset=destroy_asset)
-        self.total = UInt64()
-        self.decimals = UInt64()
-        self.default_frozen = False
-        self.unit_name = String()
-        self.name = String()
-        self.url = String()
-        self.metadata_hash = Bytes()
-        self.manager_addr = Account()
-        self.reserve_addr = Account()
-        self.freeze_addr = Account()
-        self.clawback_addr = Account()
-        self.smart_asa_id = UInt64()
-        self.global_frozen = False
+        # The App is deleted with this call: close its account to the Manager
+        inner_close_account(close_remainder_to=Txn.sender)
 
     @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_asset_config(self, *, asset: Asset) -> AssetConfig:

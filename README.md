@@ -79,13 +79,13 @@ Both Smart ASA variants share the same roles and transfer rules.
 
 ### Roles
 
-| Role     | Can                                                                                                                                                                                    | If set to `ZeroAddress`                        |
-|:---------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------|
-| Creator  | Create the Smart ASA (`asset_create`), once                                                                                                                                            | –                                              |
-| Manager  | Configure (`asset_config`) and destroy (`asset_destroy`, which also deletes the Application) the Smart ASA, and interact with the ASA Metadata Registry (`asa_metadata_registry_init`) | Configuration is locked, destroy is impossible |
-| Reserve  | Mint and burn                                                                                                                                                                          | Minting and burning are disabled for good      |
-| Freeze   | Freeze the whole Smart ASA (`asset_freeze`) or an account (`account_freeze`)                                                                                                           | The current freeze state is permanent          |
-| Clawback | Move units between holders, regardless of freezes                                                                                                                                      | Clawback is disabled for good                  |
+| Role     | Can                                                                                                                                                                                                                      | If set to `ZeroAddress`                        |
+|:---------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------|
+| Creator  | Create the Smart ASA (`asset_create`), once                                                                                                                                                                              | –                                              |
+| Manager  | Configure (`asset_config`) and destroy (`asset_destroy`, which also deletes the Application and sends its ALGO to the Manager) the Smart ASA, and interact with the ASA Metadata Registry (`asa_metadata_registry_init`) | Configuration is locked, destroy is impossible |
+| Reserve  | Mint and burn                                                                                                                                                                                                            | Minting and burning are disabled for good      |
+| Freeze   | Freeze the whole Smart ASA (`asset_freeze`) or an account (`account_freeze`)                                                                                                                                             | The current freeze state is permanent          |
+| Clawback | Move units between holders, regardless of freezes                                                                                                                                                                        | Clawback is disabled for good                  |
 
 The Smart ASA Application holds the units not minted yet and all the Controlled ASA
 roles. A role set to the Application address can't be used either (the Application
