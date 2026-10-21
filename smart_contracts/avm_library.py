@@ -96,3 +96,12 @@ def inner_asset_destroy(*, destroy_asset: Asset) -> None:
     itxn.AssetConfig(
         config_asset=destroy_asset,
     ).submit()
+
+
+@subroutine
+def inner_close_account(*, close_remainder_to: Account) -> None:
+    itxn.Payment(
+        receiver=close_remainder_to,
+        amount=0,
+        close_remainder_to=close_remainder_to,
+    ).submit()
