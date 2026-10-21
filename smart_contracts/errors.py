@@ -1,52 +1,136 @@
-# Errors
-WRONG_GLOBAL_BYTES = "Wrong Global Bytes allocation"
-WRONG_GLOBAL_UINTS = "Wrong Global UInts allocation"
-WRONG_LOCAL_BYTES = "Wrong Local Bytes allocation"
-WRONG_LOCAL_UINTS = "Wrong Local UInts allocation"
+from typing import LiteralString
 
-WRONG_ON_COMPLETE = "Wrong On Complete Action"
+# ARC-65 error codes: the App logs `ERR:<code>` before failing
 
-UNAUTHORIZED = "Unauthorized"
-UNAUTHORIZED_MANAGER = "Unauthorized Manager"
-UNAUTHORIZED_RESERVE = "Unauthorized Reserve"
-UNAUTHORIZED_FREEZE = "Unauthorized Freeze"
-UNAUTHORIZED_CLAWBACK = "Unauthorized Clawback"
+# ── Schema ────────────────────────────────────────────────────────────────────
+# Wrong Global Bytes allocation
+WRONG_GLOBAL_BYTES: LiteralString = "wrongGlobalBytes"
 
-MISSING_CTRL_ASA = "Missing Controlled ASA"
-NOT_OPTED_IN = "Account not opted in to the Smart ASA"
-INVALID_CTRL_ASA = "Invalid Controlled ASA ID"
-EXISTING_CTRL_ASA = "Controlled ASA already created"
+# Wrong Global UInts allocation
+WRONG_GLOBAL_UINTS: LiteralString = "wrongGlobalUints"
 
-DISABLED_RESERVE = "Reserve Address has been deleted"
-DISABLED_FREEZE = "Freeze Address has been deleted"
-DISABLED_CLAWBACK = "Clawback Address has been deleted"
+# Wrong Local Bytes allocation
+WRONG_LOCAL_BYTES: LiteralString = "wrongLocalBytes"
 
-GLOBAL_FROZEN = "Smart ASA is global frozen"
-SENDER_FROZEN = "Sender account is frozen"
-RECEIVER_FROZEN = "Receiver account is frozen"
-RESERVE_FROZEN = "Reserve account is frozen"
+# Wrong Local UInts allocation
+WRONG_LOCAL_UINTS: LiteralString = "wrongLocalUints"
 
-OPT_IN_WRONG_ASA = "Wrong ASA Opt In ID"
-OPT_IN_WRONG_SENDER = "Wrong ASA Opt In Sender"
-OPT_IN_WRONG_ASSET_SENDER = "Forbidden Clawback on Opt In"
-OPT_IN_WRONG_RECEIVER = "Wrong ASA Opt In Receiver"
-OPT_IN_WRONG_AMOUNT = "Wrong ASA Opt In Amount"
-OPT_IN_WRONG_CLOSE_TO = "Forbidden Close Out on Opt In"
+# Wrong OnComplete action
+WRONG_ON_COMPLETE: LiteralString = "wrongOnComplete"
 
-CLOSE_OUT_WRONG_ASA = "Wrong ASA Close Out ID"
-CLOSE_OUT_WRONG_SENDER = "Wrong ASA Close Out Sender"
-CLOSE_OUT_WRONG_AMOUNT = "Wrong ASA Close Out Amount"
-CLOSE_OUT_WRONG_CLOSE_TO = "Wrong Close Out on Close Out"
-INVALID_CLOSE_OUT_GROUP_SIZE = "Invalid Close Out group size"
+# ── Auth ──────────────────────────────────────────────────────────────────────
+# Unauthorized, it must be the Application creator
+UNAUTHORIZED_CREATOR: LiteralString = "unauthorizedCreator"
 
-INVALID_TOTAL = "Invalid Total, must be >= circulating supply"
-INVALID_METADATA_HASH_LENGTH = "Invalid Metadata Hash length, must be 32 bytes"
+# Unauthorized, it must be the Manager
+UNAUTHORIZED_MANAGER: LiteralString = "unauthorizedManager"
 
-SELF_MINT = "Forbidden self minting"
-OVER_MINT = "Forbidden over minting"
-CLAWBACK_BURN = "Forbidden clawback burning"
+# Unauthorized, it must be the Reserve
+UNAUTHORIZED_RESERVE: LiteralString = "unauthorizedReserve"
 
-MISSING_ASA_METADATA_REGISTRY = "Missing ASA Metadata Registry App ID"
-INVALID_ASA_METADATA_REGISTRY_MBR_PAYMENT = "Must pay MBR to the ASA Metadata Registry"
-INVALID_ASA_METADATA_REGISTRY_CALL = "Must call the ASA Metadata Registry"
-INVALID_CTRL_ASA_RBAC_RECONFIG = "Must grant Controlled ASA RBAC to the Smart ASA"
+# Unauthorized, it must be the Freeze
+UNAUTHORIZED_FREEZE: LiteralString = "unauthorizedFreeze"
+
+# Unauthorized, it must be the Clawback (or the asset sender)
+UNAUTHORIZED_CLAWBACK: LiteralString = "unauthorizedClawback"
+
+# ── Controlled ASA ────────────────────────────────────────────────────────────
+# The Controlled ASA has not been created yet
+MISSING_CTRL_ASA: LiteralString = "ctrlAsaNotExist"
+
+# The Controlled ASA has already been created
+EXISTING_CTRL_ASA: LiteralString = "ctrlAsaExist"
+
+# The asset is not the Controlled ASA
+INVALID_CTRL_ASA: LiteralString = "ctrlAsaInvalid"
+
+# The account is not opted in to the Smart ASA Application
+NOT_OPTED_IN: LiteralString = "accountNotOptedIn"
+
+# ── Roles ─────────────────────────────────────────────────────────────────────
+# The Reserve is disabled (ZeroAddress) for good
+DISABLED_RESERVE: LiteralString = "reserveDisabled"
+
+# The Freeze is disabled (ZeroAddress) for good
+DISABLED_FREEZE: LiteralString = "freezeDisabled"
+
+# The Clawback is disabled (ZeroAddress) for good
+DISABLED_CLAWBACK: LiteralString = "clawbackDisabled"
+
+# ── Freeze ────────────────────────────────────────────────────────────────────
+# The Smart ASA is globally frozen
+GLOBAL_FROZEN: LiteralString = "globalFrozen"
+
+# The sender account is frozen
+SENDER_FROZEN: LiteralString = "senderFrozen"
+
+# The receiver account is frozen
+RECEIVER_FROZEN: LiteralString = "receiverFrozen"
+
+# The Reserve account is frozen
+RESERVE_FROZEN: LiteralString = "reserveFrozen"
+
+# ── Opt-in ────────────────────────────────────────────────────────────────────
+# The Controlled ASA opt-in is for another asset
+OPT_IN_WRONG_ASA: LiteralString = "optInWrongAsa"
+
+# The Controlled ASA opt-in sender is not the caller
+OPT_IN_WRONG_SENDER: LiteralString = "optInWrongSender"
+
+# The Controlled ASA opt-in is a clawback
+OPT_IN_WRONG_ASSET_SENDER: LiteralString = "optInWrongAssetSender"
+
+# The Controlled ASA opt-in receiver is not the caller
+OPT_IN_WRONG_RECEIVER: LiteralString = "optInWrongReceiver"
+
+# The Controlled ASA opt-in amount is not 0
+OPT_IN_WRONG_AMOUNT: LiteralString = "optInWrongAmount"
+
+# The Controlled ASA opt-in closes out
+OPT_IN_WRONG_CLOSE_TO: LiteralString = "optInWrongCloseTo"
+
+# ── Close-out ─────────────────────────────────────────────────────────────────
+# The Controlled ASA close-out is missing from the group
+INVALID_CLOSE_OUT_GROUP_SIZE: LiteralString = "closeOutMissing"
+
+# The Controlled ASA close-out is for another asset
+CLOSE_OUT_WRONG_ASA: LiteralString = "closeOutWrongAsa"
+
+# The Controlled ASA close-out sender is not the caller
+CLOSE_OUT_WRONG_SENDER: LiteralString = "closeOutWrongSender"
+
+# The Controlled ASA close-out amount is not 0
+CLOSE_OUT_WRONG_AMOUNT: LiteralString = "closeOutWrongAmount"
+
+# The Controlled ASA close-out is not to the Smart ASA Application
+CLOSE_OUT_WRONG_CLOSE_TO: LiteralString = "closeOutWrongCloseTo"
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+# Invalid total, it must not be lower than the circulating supply
+INVALID_TOTAL: LiteralString = "totalInvalid"
+
+# Invalid metadata hash, it must be 32 bytes
+INVALID_METADATA_HASH_LENGTH: LiteralString = "metadataHashInvalid"
+
+# ── Transfers ─────────────────────────────────────────────────────────────────
+# Minting to the Smart ASA Application is forbidden
+SELF_MINT: LiteralString = "selfMint"
+
+# Minting above the total is forbidden
+OVER_MINT: LiteralString = "overMint"
+
+# Burning units of another holder is forbidden
+CLAWBACK_BURN: LiteralString = "clawbackBurn"
+
+# ── ASA Metadata Registry ─────────────────────────────────────────────────────
+# The ASA Metadata Registry App ID is not set
+MISSING_ASA_METADATA_REGISTRY: LiteralString = "registryNotSet"
+
+# The ASA Metadata Registry MBR payment is missing
+INVALID_ASA_METADATA_REGISTRY_MBR_PAYMENT: LiteralString = "registryMbrPaymentInvalid"
+
+# The transaction is not an ASA Metadata Registry call
+INVALID_ASA_METADATA_REGISTRY_CALL: LiteralString = "registryCallInvalid"
+
+# The group must return the Controlled ASA roles to the Smart ASA Application
+INVALID_CTRL_ASA_RBAC_RECONFIG: LiteralString = "ctrlAsaRbacInvalid"

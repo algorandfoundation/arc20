@@ -10,6 +10,7 @@ from algopy import (
     UInt64,
     arc4,
     gtxn,
+    logged_assert,
     subroutine,
     urange,
 )
@@ -40,14 +41,15 @@ def _is_asa_metadata_registry_call(txn: gtxn.Transaction) -> bool:
 
 @subroutine
 def _assert_valid_controlled_asa_reconfig(txn: gtxn.Transaction, asset: Asset) -> None:
-    assert (
+    logged_assert(
         txn.type == TransactionType.AssetConfig
         and txn.config_asset == asset
         and txn.manager == Global.current_application_address
         and txn.reserve == Global.current_application_address
         and txn.freeze == Global.current_application_address
-        and txn.clawback == Global.current_application_address
-    ), err.INVALID_CTRL_ASA_RBAC_RECONFIG
+        and txn.clawback == Global.current_application_address,
+        err.INVALID_CTRL_ASA_RBAC_RECONFIG,
+    )
 
 
 class Arc89SmartAsa(
@@ -67,7 +69,9 @@ class Arc89SmartAsa(
     def __init__(self) -> None:
         SmartAsa.__init__(self)
         # A zero ASA Metadata Registry App ID would match App creation calls
-        assert TemplateVar[UInt64](ARC89_APP_ID), err.MISSING_ASA_METADATA_REGISTRY
+        logged_assert(
+            TemplateVar[UInt64](ARC89_APP_ID) != 0, err.MISSING_ASA_METADATA_REGISTRY
+        )
 
     @arc4.abimethod
     def asa_metadata_registry_init(
@@ -75,20 +79,23 @@ class Arc89SmartAsa(
     ) -> None:
         # Preconditions
         self._assert_common_preconditions(asset)
-        assert Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER
+        logged_assert(Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER)
 
         # All the transactions after the ASA Metadata Registry init must be calls
         # to the ASA Metadata Registry (with an MBR payment, if required).
         group_index = Txn.group_index
         if has_mbr_payment:
             txn = gtxn.Transaction(group_index + 1)
-            assert _is_mbr_payment(txn), err.INVALID_ASA_METADATA_REGISTRY_MBR_PAYMENT
+            logged_assert(
+                _is_mbr_payment(txn), err.INVALID_ASA_METADATA_REGISTRY_MBR_PAYMENT
+            )
             group_index += 1
         for idx in urange(group_index + 1, group_index + 1 + calls):
             txn = gtxn.Transaction(idx)
-            assert _is_asa_metadata_registry_call(
-                txn
-            ), err.INVALID_ASA_METADATA_REGISTRY_CALL
+            logged_assert(
+                _is_asa_metadata_registry_call(txn),
+                err.INVALID_ASA_METADATA_REGISTRY_CALL,
+            )
 
         # The ASA Metadata Registry call group must terminate granting the Controlled
         # ASA RBAC back to the Smart ASA App.

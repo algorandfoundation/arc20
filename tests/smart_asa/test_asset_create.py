@@ -56,7 +56,7 @@ def test_fail_unauthorized(
     eve: SigningAccount,
     asa_config: SmartASAConfig,
 ) -> None:
-    with pytest.raises(LogicError, match=err.UNAUTHORIZED):
+    with pytest.raises(LogicError, match=err.UNAUTHORIZED_CREATOR):
         smart_asa_client_no_asset.send.asset_create(
             AssetCreateArgs(**asa_config.dictify()),
             params=CommonAppCallParams(
