@@ -75,3 +75,18 @@ def test_fail_asa_already_created(
             AssetCreateArgs(**asa_config.dictify()),
             params=CommonAppCallParams(static_fee=min_fee_2x),
         )
+
+
+@pytest.mark.parametrize("hash_length", [0, 31, 33])
+def test_fail_invalid_metadata_hash_length(
+    min_fee_2x: AlgoAmount,
+    smart_asa_client_no_asset: SmartAsaClient,
+    asa_config: SmartASAConfig,
+    hash_length: int,
+) -> None:
+    asa_config.metadata_hash = b"\x00" * hash_length
+    with pytest.raises(LogicError, match=err.INVALID_METADATA_HASH_LENGTH):
+        smart_asa_client_no_asset.send.asset_create(
+            AssetCreateArgs(**asa_config.dictify()),
+            params=CommonAppCallParams(static_fee=min_fee_2x),
+        )
