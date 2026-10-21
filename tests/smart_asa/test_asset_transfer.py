@@ -12,6 +12,7 @@ from tests.support import (
     account_freeze,
     balance,
     circulating_supply,
+    clear_state,
     global_freeze,
     transfer,
 )
@@ -228,6 +229,27 @@ class TestBurn:
         assert circulating_supply(smart_asa_client, smart_asa_id) == 0
         assert balance(smart_asa_client, smart_asa_id, account_with_supply) == 0
 
+    def test_pass_as_reserve_and_clawback_holder_without_local_state(
+        self,
+        min_fee_2x: AlgoAmount,
+        asa_config: SmartASAConfig,
+        smart_asa_client: SmartAsaClient,
+        smart_asa_id: int,
+        reserve_and_clawback: SigningAccount,
+        account_with_supply: SigningAccount,
+    ) -> None:
+        clear_state(smart_asa_client, account_with_supply)
+        transfer(
+            smart_asa_client,
+            smart_asa_id,
+            signer=reserve_and_clawback,
+            asset_sender=account_with_supply.address,
+            asset_receiver=smart_asa_client.app_address,
+            asset_amount=asa_config.total,
+            fee=min_fee_2x,
+        )
+        assert circulating_supply(smart_asa_client, smart_asa_id) == 0
+
     def test_fail_unauthorized(
         self,
         smart_asa_client: SmartAsaClient,
@@ -394,6 +416,47 @@ class TestClawback:
             fee=min_fee_2x,
         )
         assert balance(smart_asa_client, smart_asa_id, receiver) == asa_config.total
+
+    def test_pass_holder_without_local_state(
+        self,
+        min_fee_2x: AlgoAmount,
+        asa_config: SmartASAConfig,
+        smart_asa_client: SmartAsaClient,
+        smart_asa_id: int,
+        clawback: SigningAccount,
+        account_with_supply: SigningAccount,
+        receiver: SigningAccount,
+    ) -> None:
+        # As for native ASA, a ClearState can't put units out of the Clawback's reach
+        clear_state(smart_asa_client, account_with_supply)
+        transfer(
+            smart_asa_client,
+            smart_asa_id,
+            signer=clawback,
+            asset_sender=account_with_supply.address,
+            asset_receiver=receiver.address,
+            asset_amount=asa_config.total,
+            fee=min_fee_2x,
+        )
+        assert balance(smart_asa_client, smart_asa_id, receiver) == asa_config.total
+
+    def test_fail_receiver_not_opted_in(
+        self,
+        smart_asa_client: SmartAsaClient,
+        smart_asa_id: int,
+        clawback: SigningAccount,
+        account_with_supply: SigningAccount,
+        eve: SigningAccount,
+    ) -> None:
+        with pytest.raises(LogicError, match=NOT_OPTED_IN):
+            transfer(
+                smart_asa_client,
+                smart_asa_id,
+                signer=clawback,
+                asset_sender=account_with_supply.address,
+                asset_receiver=eve.address,
+                asset_amount=1,
+            )
 
     def test_fail_unauthorized(
         self,
