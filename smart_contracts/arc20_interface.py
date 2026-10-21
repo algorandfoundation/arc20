@@ -37,7 +37,7 @@ class Arc20Interface(ARC4Contract, ABC):
         pass
 
     @abstractmethod
-    @arc4.abimethod
+    @arc4.abimethod(resource_encoding="index")
     def asset_config(
         self,
         *,
@@ -49,15 +49,15 @@ class Arc20Interface(ARC4Contract, ABC):
         name: String,
         url: String,
         metadata_hash: Bytes,
-        manager_addr: Account,
-        reserve_addr: Account,
-        freeze_addr: Account,
-        clawback_addr: Account,
+        manager_addr: arc4.Address,
+        reserve_addr: arc4.Address,
+        freeze_addr: arc4.Address,
+        clawback_addr: arc4.Address,
     ) -> None:
         pass
 
     @abstractmethod
-    @arc4.abimethod
+    @arc4.abimethod(resource_encoding="index")
     def asset_transfer(
         self,
         *,
@@ -69,12 +69,12 @@ class Arc20Interface(ARC4Contract, ABC):
         pass
 
     @abstractmethod
-    @arc4.abimethod
+    @arc4.abimethod(resource_encoding="index")
     def asset_freeze(self, *, freeze_asset: Asset, asset_frozen: bool) -> None:
         pass
 
     @abstractmethod
-    @arc4.abimethod
+    @arc4.abimethod(resource_encoding="index")
     def account_freeze(
         self, *, freeze_asset: Asset, freeze_account: Account, asset_frozen: bool
     ) -> None:
@@ -86,28 +86,28 @@ class Arc20Interface(ARC4Contract, ABC):
         pass
 
     @abstractmethod
-    @arc4.abimethod(allow_actions=["DeleteApplication"])
+    @arc4.abimethod(allow_actions=["DeleteApplication"], resource_encoding="index")
     def asset_destroy(self, *, destroy_asset: Asset) -> None:
         pass
 
     @abstractmethod
-    @arc4.abimethod(readonly=True)
+    @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_asset_config(self, *, asset: Asset) -> AssetConfig:
         pass
 
     @abstractmethod
-    @arc4.abimethod(readonly=True)
+    @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_asset_is_frozen(self, *, freeze_asset: Asset) -> bool:
         pass
 
     @abstractmethod
-    @arc4.abimethod(readonly=True)
+    @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_account_is_frozen(
         self, *, freeze_asset: Asset, freeze_account: Account
     ) -> bool:
         pass
 
     @abstractmethod
-    @arc4.abimethod(readonly=True)
+    @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_circulating_supply(self, *, asset: Asset) -> UInt64:
         pass
