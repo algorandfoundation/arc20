@@ -23,6 +23,7 @@ DISABLED_CLAWBACK = "Clawback Address has been deleted"
 GLOBAL_FROZEN = "Smart ASA is global frozen"
 SENDER_FROZEN = "Sender account is frozen"
 RECEIVER_FROZEN = "Receiver account is frozen"
+RESERVE_FROZEN = "Reserve account is frozen"
 
 OPT_IN_WRONG_ASA = "Wrong ASA Opt In ID"
 OPT_IN_WRONG_SENDER = "Wrong ASA Opt In Sender"

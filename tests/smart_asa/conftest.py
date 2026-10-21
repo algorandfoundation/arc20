@@ -16,7 +16,13 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaFactory,
 )
 from tests.conftest import SmartASAConfig
-from tests.support import INITIAL_FUNDS, funded_account, opt_in, transfer
+from tests.support import (
+    INITIAL_FUNDS,
+    account_freeze,
+    funded_account,
+    opt_in,
+    transfer,
+)
 
 
 @pytest.fixture(scope="function")
@@ -64,14 +70,23 @@ def asa_config(
 @pytest.fixture(scope="function")
 def smart_asa_client(
     min_fee_2x: AlgoAmount,
+    reserve: SigningAccount,
+    freeze: SigningAccount,
     smart_asa_client_no_asset: SmartAsaClient,
     asa_config: SmartASAConfig,
 ) -> SmartAsaClient:
-    smart_asa_client_no_asset.send.asset_create(
+    client = smart_asa_client_no_asset
+    client.send.asset_create(
         AssetCreateArgs(**asa_config.dictify()),
         params=CommonAppCallParams(static_fee=min_fee_2x),
     )
-    return smart_asa_client_no_asset
+    # The Reserve mints and burns only if opted in and not frozen (approved by Freeze
+    # if the Smart ASA is default frozen)
+    smart_asa_id = client.state.global_state.smart_asa_id
+    opt_in(client, smart_asa_id, reserve)
+    if asa_config.default_frozen:
+        account_freeze(client, smart_asa_id, freeze, reserve.address, frozen=False)
+    return client
 
 
 @pytest.fixture(scope="function")
@@ -123,7 +138,6 @@ def reserve_with_supply(
     smart_asa_client: SmartAsaClient,
     smart_asa_id: int,
 ) -> SigningAccount:
-    opt_in(smart_asa_client, smart_asa_id, reserve)
     transfer(
         smart_asa_client,
         smart_asa_id,

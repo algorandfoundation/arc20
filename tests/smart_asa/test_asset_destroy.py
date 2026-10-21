@@ -8,7 +8,7 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaClient,
 )
 from tests.conftest import SmartASAConfig
-from tests.support import clear_state, transfer
+from tests.support import claw_back_and_burn, clear_state
 
 
 def _micro_algo(client: SmartAsaClient, address: str) -> int:
@@ -58,12 +58,11 @@ def test_pass_destroy_after_recovering_from_holder_without_local_state(
 ) -> None:
     # A holder that cleared its App Local State can't block the destroy
     clear_state(smart_asa_client, account_with_supply)
-    transfer(
+    claw_back_and_burn(
         smart_asa_client,
         smart_asa_id,
         signer=reserve_and_clawback,
-        asset_sender=account_with_supply.address,
-        asset_receiver=smart_asa_client.app_address,
+        holder=account_with_supply.address,
         asset_amount=asa_config.total,
         fee=min_fee_2x,
     )
