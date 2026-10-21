@@ -119,6 +119,14 @@ class SmartAsa(
         self, *, asset_sender: Account, asset_receiver: Account
     ) -> None:
         assert Txn.sender == asset_sender, err.UNAUTHORIZED_CLAWBACK
+        self._assert_transfer_allowed(
+            asset_sender=asset_sender, asset_receiver=asset_receiver
+        )
+
+    def _assert_transfer_allowed(
+        self, *, asset_sender: Account, asset_receiver: Account
+    ) -> None:
+        # Holder-to-holder policy, shared by regular transfers and close-outs to an account
         # In the case of Controlled ASA destroyed and re-created, the Smart ADA ID in Local State could be outdated.
         assert (
             self.account_smart_asa_id[asset_sender] == self.smart_asa_id
@@ -159,11 +167,6 @@ class SmartAsa(
             asa_close_out_txn.asset_close_to == asset_creator
         ), err.CLOSE_OUT_WRONG_CLOSE_TO
         assert close_asset.id == self.smart_asa_id, err.INVALID_CTRL_ASA
-
-    def _assert_close_out_not_to_creator(self, close_to: Account) -> None:
-        assert not self.global_frozen, err.GLOBAL_FROZEN
-        assert not self.account_frozen[Txn.sender], err.SENDER_FROZEN
-        assert not self.account_frozen[close_to], err.CLOSE_TO_FROZEN
 
     def _assert_valid_metadata_hash(self, metadata_hash: Bytes) -> None:
         # Non-normative: stricter than ARC-20, which allows any `byte[]` length
@@ -461,21 +464,20 @@ class SmartAsa(
         creator, exists = op.AssetParamsGet.asset_creator(close_asset.id)
         if exists:  # Smart ASA has not been destroyed
             self._assert_close_out_not_destroyed_preconditions(close_asset, creator)
-            if (
-                close_to != creator
-            ):  # If close-out target is not the Creator, then close-out target MUST be opted-in
-                assert (
-                    self.account_smart_asa_id[close_to] == self.smart_asa_id
-                ), err.INVALID_CTRL_ASA
-                self._assert_close_out_not_to_creator(close_to)
+            # Closing out to the Creator needs no inner transfer: the Controlled ASA
+            # close-out that follows moves the whole balance, even if frozen.
+            if close_to != creator:
+                self._assert_transfer_allowed(
+                    asset_sender=Txn.sender, asset_receiver=close_to
+                )
 
-            # Effects
-            inner_asset_transfer(
-                xfer_asset=close_asset,
-                asset_amount=close_asset.balance(Txn.sender),
-                asset_sender=Txn.sender,
-                asset_receiver=close_to,
-            )
+                # Effects
+                inner_asset_transfer(
+                    xfer_asset=close_asset,
+                    asset_amount=close_asset.balance(Txn.sender),
+                    asset_sender=Txn.sender,
+                    asset_receiver=close_to,
+                )
 
     @arc4.abimethod(allow_actions=["DeleteApplication"], resource_encoding="index")
     def asset_destroy(self, *, destroy_asset: Asset) -> None:
