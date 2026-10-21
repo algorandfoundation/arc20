@@ -11,6 +11,7 @@ from algopy import (
     UInt64,
     arc4,
     gtxn,
+    logged_assert,
 )
 
 from smart_contracts import errors as err
@@ -41,10 +42,14 @@ class SmartAsa(
 
     def __init__(self) -> None:
         # Preconditions
-        assert Txn.global_num_byte_slice == cfg.GLOBAL_BYTES, err.WRONG_GLOBAL_BYTES
-        assert Txn.global_num_uint == cfg.GLOBAL_UINTS, err.WRONG_GLOBAL_UINTS
-        assert Txn.local_num_byte_slice == cfg.LOCAL_BYTES, err.WRONG_LOCAL_BYTES
-        assert Txn.local_num_uint == cfg.LOCAL_UINTS, err.WRONG_LOCAL_UINTS
+        logged_assert(
+            Txn.global_num_byte_slice == cfg.GLOBAL_BYTES, err.WRONG_GLOBAL_BYTES
+        )
+        logged_assert(Txn.global_num_uint == cfg.GLOBAL_UINTS, err.WRONG_GLOBAL_UINTS)
+        logged_assert(
+            Txn.local_num_byte_slice == cfg.LOCAL_BYTES, err.WRONG_LOCAL_BYTES
+        )
+        logged_assert(Txn.local_num_uint == cfg.LOCAL_UINTS, err.WRONG_LOCAL_UINTS)
 
         # GLOBAL STATE
         # ASA Fields
@@ -71,41 +76,46 @@ class SmartAsa(
         return cfg.TOTAL - ctrl_asset.balance(Global.current_application_address)
 
     def _assert_common_preconditions(self, asset: Asset) -> None:
-        assert self.smart_asa_id, err.MISSING_CTRL_ASA
-        assert self.smart_asa_id == asset.id, err.INVALID_CTRL_ASA
+        logged_assert(self.smart_asa_id != 0, err.MISSING_CTRL_ASA)
+        logged_assert(self.smart_asa_id == asset.id, err.INVALID_CTRL_ASA)
 
     def _assert_opted_in(self, account: Account) -> None:
-        assert account.is_opted_in(Global.current_application_id), err.NOT_OPTED_IN
+        logged_assert(
+            account.is_opted_in(Global.current_application_id), err.NOT_OPTED_IN
+        )
 
     def _assert_minting_preconditions(
         self, *, asset_receiver: Account, asset_amount: UInt64
     ) -> None:
         # Mint permission restricted to Reserve.
-        assert Txn.sender == self.reserve_addr, err.UNAUTHORIZED_RESERVE
+        logged_assert(Txn.sender == self.reserve_addr, err.UNAUTHORIZED_RESERVE)
         # Forbidden self-mint (to Creator) and over-mint (> total).
-        assert asset_receiver != Global.current_application_address, err.SELF_MINT
-        assert (
+        logged_assert(
+            asset_receiver != Global.current_application_address, err.SELF_MINT
+        )
+        logged_assert(
             asset_amount + self._circulating_supply(Asset(self.smart_asa_id))
-            <= self.total
-        ), err.OVER_MINT
+            <= self.total,
+            err.OVER_MINT,
+        )
         self._assert_opted_in(asset_receiver)
-        assert not self.global_frozen, err.GLOBAL_FROZEN
+        logged_assert(not self.global_frozen, err.GLOBAL_FROZEN)
         self._assert_reserve_not_frozen()
-        assert not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN
+        logged_assert(not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN)
 
     def _assert_burning_preconditions(self, *, asset_sender: Account) -> None:
         # Burn permission restricted to Reserve.
-        assert Txn.sender == self.reserve_addr, err.UNAUTHORIZED_RESERVE
-        assert not self.global_frozen, err.GLOBAL_FROZEN
+        logged_assert(Txn.sender == self.reserve_addr, err.UNAUTHORIZED_RESERVE)
+        logged_assert(not self.global_frozen, err.GLOBAL_FROZEN)
         # Forbidden clawback through burning (burned amount not from Reserve).
-        assert asset_sender == self.reserve_addr, err.CLAWBACK_BURN
+        logged_assert(asset_sender == self.reserve_addr, err.CLAWBACK_BURN)
         self._assert_reserve_not_frozen()
 
     def _assert_reserve_not_frozen(self) -> None:
         # The Reserve obeys account freezes, even if it is also the Clawback. Fail-closed:
         # a Reserve without App Local State can't mint nor burn.
         self._assert_opted_in(self.reserve_addr)
-        assert not self.account_frozen[self.reserve_addr], err.RESERVE_FROZEN
+        logged_assert(not self.account_frozen[self.reserve_addr], err.RESERVE_FROZEN)
 
     def _assert_clawback_preconditions(self, *, asset_receiver: Account) -> None:
         # As for native ASA, the clawed back holder needs no App Local State (e.g. after
@@ -115,7 +125,7 @@ class SmartAsa(
     def _assert_regular_transfer_preconditions(
         self, *, asset_sender: Account, asset_receiver: Account
     ) -> None:
-        assert Txn.sender == asset_sender, err.UNAUTHORIZED_CLAWBACK
+        logged_assert(Txn.sender == asset_sender, err.UNAUTHORIZED_CLAWBACK)
         self._assert_transfer_allowed(
             asset_sender=asset_sender, asset_receiver=asset_receiver
         )
@@ -126,34 +136,43 @@ class SmartAsa(
         # Holder-to-holder policy, shared by regular transfers and close-outs to an account
         self._assert_opted_in(asset_sender)
         self._assert_opted_in(asset_receiver)
-        assert not self.global_frozen, err.GLOBAL_FROZEN
-        assert not self.account_frozen[asset_sender], err.SENDER_FROZEN
-        assert not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN
+        logged_assert(not self.global_frozen, err.GLOBAL_FROZEN)
+        logged_assert(not self.account_frozen[asset_sender], err.SENDER_FROZEN)
+        logged_assert(not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN)
 
     def _assert_close_out_preconditions(self, close_asset: Asset) -> None:
         asa_close_out_relative_idx = Txn.group_index + 1
-        assert Txn.on_completion == OnCompleteAction.CloseOut, err.WRONG_ON_COMPLETE
+        logged_assert(
+            Txn.on_completion == OnCompleteAction.CloseOut, err.WRONG_ON_COMPLETE
+        )
         self._assert_common_preconditions(close_asset)
-        assert (
-            Global.group_size > asa_close_out_relative_idx
-        ), err.INVALID_CLOSE_OUT_GROUP_SIZE
+        logged_assert(
+            Global.group_size > asa_close_out_relative_idx,
+            err.INVALID_CLOSE_OUT_GROUP_SIZE,
+        )
         # The typed group transaction asserts its type (Asset Transfer)
         asa_close_out_txn = gtxn.AssetTransferTransaction(asa_close_out_relative_idx)
-        assert (
-            asa_close_out_txn.xfer_asset.id == close_asset.id
-        ), err.CLOSE_OUT_WRONG_ASA
-        assert asa_close_out_txn.sender == Txn.sender, err.CLOSE_OUT_WRONG_SENDER
-        assert asa_close_out_txn.asset_amount == UInt64(0), err.CLOSE_OUT_WRONG_AMOUNT
+        logged_assert(
+            asa_close_out_txn.xfer_asset.id == close_asset.id, err.CLOSE_OUT_WRONG_ASA
+        )
+        logged_assert(
+            asa_close_out_txn.sender == Txn.sender, err.CLOSE_OUT_WRONG_SENDER
+        )
+        logged_assert(
+            asa_close_out_txn.asset_amount == UInt64(0), err.CLOSE_OUT_WRONG_AMOUNT
+        )
         # The Controlled ASA holding closes to its Creator (the Smart ASA App)
-        assert (
-            asa_close_out_txn.asset_close_to == Global.current_application_address
-        ), err.CLOSE_OUT_WRONG_CLOSE_TO
+        logged_assert(
+            asa_close_out_txn.asset_close_to == Global.current_application_address,
+            err.CLOSE_OUT_WRONG_CLOSE_TO,
+        )
 
     def _assert_valid_metadata_hash(self, metadata_hash: Bytes) -> None:
         # Non-normative: stricter than ARC-20, which allows any `byte[]` length
-        assert (
-            metadata_hash.length == cfg.METADATA_HASH_LENGTH
-        ), err.INVALID_METADATA_HASH_LENGTH
+        logged_assert(
+            metadata_hash.length == cfg.METADATA_HASH_LENGTH,
+            err.INVALID_METADATA_HASH_LENGTH,
+        )
 
     def _configure_smart_asa(
         self,
@@ -218,8 +237,8 @@ class SmartAsa(
             Controlled ASA ID
         """
         # Preconditions
-        assert Txn.sender == Global.creator_address, err.UNAUTHORIZED
-        assert not self.smart_asa_id, err.EXISTING_CTRL_ASA
+        logged_assert(Txn.sender == Global.creator_address, err.UNAUTHORIZED_CREATOR)
+        logged_assert(not self.smart_asa_id, err.EXISTING_CTRL_ASA)
         self._assert_valid_metadata_hash(metadata_hash)
 
         # Create the underlying Controlled ASA
@@ -267,22 +286,30 @@ class SmartAsa(
         """
         # Preconditions
         self._assert_common_preconditions(asset)
-        assert ctrl_asa_opt_in.xfer_asset.id == self.smart_asa_id, err.OPT_IN_WRONG_ASA
-        assert ctrl_asa_opt_in.sender == Txn.sender, err.OPT_IN_WRONG_SENDER
-        assert (
-            ctrl_asa_opt_in.asset_sender == Global.zero_address
-        ), err.OPT_IN_WRONG_ASSET_SENDER  # Pedant: only the Smart ASA App can clawback
-        assert ctrl_asa_opt_in.asset_receiver == Txn.sender, err.OPT_IN_WRONG_RECEIVER
-        assert (
-            ctrl_asa_opt_in.asset_amount == 0
-        ), err.OPT_IN_WRONG_AMOUNT  # Pedant: Controlled ASA is default frozen
-        assert (
-            ctrl_asa_opt_in.asset_close_to == Global.zero_address
-        ), err.OPT_IN_WRONG_CLOSE_TO
-        assert Txn.on_completion == OnCompleteAction.OptIn, err.WRONG_ON_COMPLETE
-        assert Txn.sender.is_opted_in(
-            asset
-        ), err.MISSING_CTRL_ASA  # Pedant: ctrl_asa_opt_in is checked properly
+        logged_assert(
+            ctrl_asa_opt_in.xfer_asset.id == self.smart_asa_id, err.OPT_IN_WRONG_ASA
+        )
+        logged_assert(ctrl_asa_opt_in.sender == Txn.sender, err.OPT_IN_WRONG_SENDER)
+        logged_assert(
+            ctrl_asa_opt_in.asset_sender == Global.zero_address,
+            err.OPT_IN_WRONG_ASSET_SENDER,
+        )  # Pedant: only the Smart ASA App can clawback
+        logged_assert(
+            ctrl_asa_opt_in.asset_receiver == Txn.sender, err.OPT_IN_WRONG_RECEIVER
+        )
+        logged_assert(
+            ctrl_asa_opt_in.asset_amount == 0, err.OPT_IN_WRONG_AMOUNT
+        )  # Pedant: Controlled ASA is default frozen
+        logged_assert(
+            ctrl_asa_opt_in.asset_close_to == Global.zero_address,
+            err.OPT_IN_WRONG_CLOSE_TO,
+        )
+        logged_assert(
+            Txn.on_completion == OnCompleteAction.OptIn, err.WRONG_ON_COMPLETE
+        )
+        logged_assert(
+            Txn.sender.is_opted_in(asset), err.MISSING_CTRL_ASA
+        )  # Pedant: ctrl_asa_opt_in is checked properly
 
         # Local State Init
         self.account_frozen[Txn.sender] = False
@@ -329,18 +356,24 @@ class SmartAsa(
         """
         # Preconditions
         self._assert_common_preconditions(config_asset)
-        assert Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER
+        logged_assert(Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER)
         self._assert_valid_metadata_hash(metadata_hash)
         if reserve_addr.native != self.reserve_addr:
-            assert self.reserve_addr != Global.zero_address, err.DISABLED_RESERVE
+            logged_assert(
+                self.reserve_addr != Global.zero_address, err.DISABLED_RESERVE
+            )
         if freeze_addr.native != self.freeze_addr:
-            assert self.freeze_addr != Global.zero_address, err.DISABLED_FREEZE
+            logged_assert(self.freeze_addr != Global.zero_address, err.DISABLED_FREEZE)
         if default_frozen != self.default_frozen:
             # A disabled Freeze leaves the freeze settings as they are
-            assert self.freeze_addr != Global.zero_address, err.DISABLED_FREEZE
+            logged_assert(self.freeze_addr != Global.zero_address, err.DISABLED_FREEZE)
         if clawback_addr.native != self.clawback_addr:
-            assert self.clawback_addr != Global.zero_address, err.DISABLED_CLAWBACK
-        assert total >= self._circulating_supply(config_asset), err.INVALID_TOTAL
+            logged_assert(
+                self.clawback_addr != Global.zero_address, err.DISABLED_CLAWBACK
+            )
+        logged_assert(
+            total >= self._circulating_supply(config_asset), err.INVALID_TOTAL
+        )
 
         # Configure Smart ASA
         self._configure_smart_asa(
@@ -409,7 +442,7 @@ class SmartAsa(
         """
         # Preconditions
         self._assert_common_preconditions(freeze_asset)
-        assert Txn.sender == self.freeze_addr, err.UNAUTHORIZED_FREEZE
+        logged_assert(Txn.sender == self.freeze_addr, err.UNAUTHORIZED_FREEZE)
 
         # Effects
         self.global_frozen = asset_frozen
@@ -429,7 +462,7 @@ class SmartAsa(
         # Preconditions
         self._assert_common_preconditions(freeze_asset)
         self._assert_opted_in(freeze_account)
-        assert Txn.sender == self.freeze_addr, err.UNAUTHORIZED_FREEZE
+        logged_assert(Txn.sender == self.freeze_addr, err.UNAUTHORIZED_FREEZE)
 
         # Effects
         self.account_frozen[freeze_account] = asset_frozen
@@ -470,7 +503,7 @@ class SmartAsa(
         """
         # Preconditions
         self._assert_common_preconditions(destroy_asset)
-        assert Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER
+        logged_assert(Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER)
 
         # Effects
         inner_asset_destroy(destroy_asset=destroy_asset)

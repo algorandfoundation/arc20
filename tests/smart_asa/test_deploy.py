@@ -11,9 +11,10 @@ from algokit_utils import (
 from algosdk.constants import ZERO_ADDRESS
 from algosdk.transaction import OnComplete
 
+import smart_contracts.errors as err
 import smart_contracts.smart_asa.config as cfg
 from smart_contracts.artifacts.smart_asa.smart_asa_client import SmartAsaClient
-from tests.support import APPROVAL_REJECTED, ASSERT_FAILED
+from tests.support import APPROVAL_REJECTED, arc65_errors
 
 ARTIFACTS = Path(__file__).parents[2] / "smart_contracts" / "artifacts" / "smart_asa"
 APPROVAL = (ARTIFACTS / "SmartAsa.approval.teal").read_text()
@@ -70,11 +71,16 @@ def test_fail_delete(
 
 
 @pytest.mark.parametrize(
-    "schema_field",
-    ["global_ints", "global_byte_slices", "local_ints", "local_byte_slices"],
+    ("schema_field", "error"),
+    [
+        ("global_ints", err.WRONG_GLOBAL_UINTS),
+        ("global_byte_slices", err.WRONG_GLOBAL_BYTES),
+        ("local_ints", err.WRONG_LOCAL_UINTS),
+        ("local_byte_slices", err.WRONG_LOCAL_BYTES),
+    ],
 )
 def test_wrong_state_schema(
-    algorand: AlgorandClient, creator: SigningAccount, schema_field: str
+    algorand: AlgorandClient, creator: SigningAccount, schema_field: str, error: str
 ) -> None:
     schema = {
         "global_ints": cfg.GLOBAL_UINTS,
@@ -83,12 +89,12 @@ def test_wrong_state_schema(
         "local_byte_slices": cfg.LOCAL_BYTES,
     }
     schema[schema_field] += 1
-    with pytest.raises(ValueError, match=ASSERT_FAILED):
-        algorand.send.app_create(
-            AppCreateParams(
-                sender=creator.address,
-                approval_program=APPROVAL,
-                clear_state_program=CLEAR,
-                schema=schema,  # type: ignore[typeddict-item]
-            )
+    composer = algorand.new_group().add_app_create(
+        AppCreateParams(
+            sender=creator.address,
+            approval_program=APPROVAL,
+            clear_state_program=CLEAR,
+            schema=schema,  # type: ignore[typeddict-item]
         )
+    )
+    assert arc65_errors(algorand, composer) == [f"ERR:{error}"]

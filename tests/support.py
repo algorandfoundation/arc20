@@ -1,5 +1,6 @@
 """Shared helpers for the Smart ASA test suite."""
 
+import base64
 from typing import Final
 
 import pytest
@@ -11,9 +12,11 @@ from algokit_utils import (
     AssetTransferParams,
     CommonAppCallParams,
     SigningAccount,
+    TransactionComposer,
 )
 from algosdk.atomic_transaction_composer import TransactionWithSigner
-from algosdk.transaction import Transaction
+from algosdk.transaction import SignedTransaction, Transaction
+from algosdk.v2client.models import SimulateRequest, SimulateRequestTransactionGroup
 
 from smart_contracts.artifacts.arc89_smart_asa.arc89_smart_asa_client import (
     Arc89SmartAsaClient,
@@ -36,7 +39,7 @@ AnySmartAsaComposer = SmartAsaComposer | Arc89SmartAsaComposer
 
 INITIAL_FUNDS: Final[AlgoAmount] = AlgoAmount.from_algo(100)
 
-# Expected failures that carry no contract error message
+# Expected failures of compiler-generated checks (no ARC-65 error)
 ASSERT_FAILED: Final[str] = "assert failed"  # ARC-4 router checks and raw algod errors
 APPROVAL_REJECTED: Final[str] = "rejected by ApprovalProgram"
 
@@ -50,6 +53,29 @@ BOTH_DEFAULT_FROZEN = pytest.mark.parametrize(
 DEFAULT_FROZEN = pytest.mark.parametrize(
     "asa_config", [True], ids=["Default Frozen"], indirect=True
 )
+
+
+def arc65_errors(algorand: AlgorandClient, composer: TransactionComposer) -> list[str]:
+    """Simulates a failing group and returns the ARC-65 errors logged by its App calls."""
+    signed_txns = [
+        SignedTransaction(txn_with_signer.txn, None)
+        for txn_with_signer in composer.build().atc.build_group()
+    ]
+    response = algorand.client.algod.simulate_transactions(
+        SimulateRequest(
+            txn_groups=[SimulateRequestTransactionGroup(txns=signed_txns)],
+            allow_empty_signatures=True,
+            allow_unnamed_resources=True,
+        )
+    )
+    group = response["txn-groups"][0]
+    assert group.get("failure-message"), "The group did not fail"
+    logs = [
+        base64.b64decode(log)
+        for result in group["txn-results"]
+        for log in result["txn-result"].get("logs", [])
+    ]
+    return [log.decode() for log in logs if log.startswith((b"ERR:", b"AER:"))]
 
 
 def funded_account(algorand: AlgorandClient) -> SigningAccount:
