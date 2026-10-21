@@ -31,7 +31,6 @@ def test_pass_asset_opt_in(
     opt_in(smart_asa_client, smart_asa_id, creator)
 
     local_state = smart_asa_client.state.local_state(creator.address)
-    assert local_state.account_smart_asa_id == smart_asa_id
     assert local_state.account_frozen == asa_config.default_frozen
 
 

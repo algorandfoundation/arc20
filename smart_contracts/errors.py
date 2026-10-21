@@ -13,6 +13,7 @@ UNAUTHORIZED_FREEZE = "Unauthorized Freeze"
 UNAUTHORIZED_CLAWBACK = "Unauthorized Clawback"
 
 MISSING_CTRL_ASA = "Missing Controlled ASA"
+NOT_OPTED_IN = "Account not opted in to the Smart ASA"
 INVALID_CTRL_ASA = "Invalid Controlled ASA ID"
 EXISTING_CTRL_ASA = "Controlled ASA already created"
 

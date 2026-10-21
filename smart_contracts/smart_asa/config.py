@@ -4,7 +4,7 @@ from typing import Final
 GLOBAL_BYTES: Final[int] = 8
 GLOBAL_UINTS: Final[int] = 5
 LOCAL_BYTES: Final[int] = 0
-LOCAL_UINTS: Final[int] = 2
+LOCAL_UINTS: Final[int] = 1
 
 # Controlled ASA
 TOTAL: Final[int] = 2**64 - 1

@@ -37,12 +37,8 @@ AnySmartAsaComposer = SmartAsaComposer | Arc89SmartAsaComposer
 INITIAL_FUNDS: Final[AlgoAmount] = AlgoAmount.from_algo(100)
 
 # Expected failures that carry no contract error message
-NOT_OPTED_IN: Final[str] = "cannot fetch key"  # Local state of a non opted-in account
 ASSERT_FAILED: Final[str] = "assert failed"  # ARC-4 router checks and raw algod errors
 APPROVAL_REJECTED: Final[str] = "rejected by ApprovalProgram"
-UNREACHABLE: Final[str] = (
-    "Unreachable: asset_create is one-shot and asset_destroy deletes the app"
-)
 
 # `asa_config` is not default frozen unless parametrized with these
 BOTH_DEFAULT_FROZEN = pytest.mark.parametrize(
