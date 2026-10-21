@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from algokit_utils import CommonAppCallParams, LogicError, SigningAccount
 from algosdk.constants import ZERO_ADDRESS
@@ -134,6 +136,19 @@ def test_fail_disabled_roles(
         )
 
 
-def test_fail_invalid_total() -> None:
-    # TODO: Mint something
-    pass  # TODO
+@pytest.mark.parametrize("asa_config", [False], indirect=True)
+def test_fail_invalid_total(
+    smart_asa_client: SmartAsaClient,
+    manager: SigningAccount,
+    asa_config: SmartASAConfig,
+    account_with_supply: SigningAccount,  # Mints the whole total
+) -> None:
+    asa_config.total -= 1  # Below the circulating supply
+    with pytest.raises(LogicError, match=re.escape(err.INVALID_TOTAL)):
+        smart_asa_client.send.asset_config(
+            AssetConfigArgs(
+                config_asset=smart_asa_client.state.global_state.smart_asa_id,
+                **asa_config.dictify(),
+            ),
+            params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
+        )

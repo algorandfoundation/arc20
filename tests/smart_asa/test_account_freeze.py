@@ -49,5 +49,39 @@ def test_fail_unauthorized(
         )
 
 
+def test_fail_invalid_ctrl_asa(
+    smart_asa_client: SmartAsaClient,
+    freeze: SigningAccount,
+    receiver: SigningAccount,
+    dummy_asa: int,
+) -> None:
+    with pytest.raises(LogicError, match=err.INVALID_CTRL_ASA):
+        smart_asa_client.send.account_freeze(
+            AccountFreezeArgs(
+                freeze_asset=dummy_asa,
+                freeze_account=receiver.address,
+                asset_frozen=True,
+            ),
+            params=CommonAppCallParams(signer=freeze.signer, sender=freeze.address),
+        )
+
+
+def test_fail_not_opted_in(
+    smart_asa_client: SmartAsaClient, freeze: SigningAccount, eve: SigningAccount
+) -> None:
+    with pytest.raises(LogicError, match="cannot fetch key"):
+        smart_asa_client.send.account_freeze(
+            AccountFreezeArgs(
+                freeze_asset=smart_asa_client.state.global_state.smart_asa_id,
+                freeze_account=eve.address,
+                asset_frozen=True,
+            ),
+            params=CommonAppCallParams(signer=freeze.signer, sender=freeze.address),
+        )
+
+
+@pytest.mark.skip(
+    reason="Unreachable: asset_create is one-shot and asset_destroy deletes the app, so local state can't go stale"
+)
 def test_fail_invalid_current_ctrl_asa() -> None:
-    pass  # TODO
+    pass

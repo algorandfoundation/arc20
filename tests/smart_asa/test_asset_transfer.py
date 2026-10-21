@@ -10,6 +10,59 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaClient,
 )
 
+# Local state read of an account that is not opted in to the app
+NOT_OPTED_IN = "cannot fetch key"
+
+
+def _global_freeze(client: SmartAsaClient, freeze: SigningAccount) -> None:
+    client.send.asset_freeze(
+        AssetFreezeArgs(
+            freeze_asset=client.state.global_state.smart_asa_id,
+            asset_frozen=True,
+        ),
+        params=CommonAppCallParams(signer=freeze.signer, sender=freeze.address),
+    )
+
+
+def _account_freeze(
+    client: SmartAsaClient, freeze: SigningAccount, account: SigningAccount
+) -> None:
+    client.send.account_freeze(
+        AccountFreezeArgs(
+            freeze_asset=client.state.global_state.smart_asa_id,
+            freeze_account=account.address,
+            asset_frozen=True,
+        ),
+        params=CommonAppCallParams(signer=freeze.signer, sender=freeze.address),
+    )
+
+
+def _transfer(
+    client: SmartAsaClient,
+    *,
+    signer: SigningAccount,
+    asset_sender: str,
+    asset_receiver: str,
+    asset_amount: int,
+    xfer_asset: int | None = None,
+    fee: AlgoAmount | None = None,
+) -> None:
+    client.send.asset_transfer(
+        AssetTransferArgs(
+            xfer_asset=(
+                xfer_asset
+                if xfer_asset is not None
+                else client.state.global_state.smart_asa_id
+            ),
+            asset_amount=asset_amount,
+            asset_sender=asset_sender,
+            asset_receiver=asset_receiver,
+        ),
+        params=CommonAppCallParams(
+            static_fee=fee, signer=signer.signer, sender=signer.address
+        ),
+    )
+
 
 class TestMint:
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
@@ -155,8 +208,25 @@ class TestMint:
                 ),
             )
 
-    def test_fail_global_frozen(self) -> None:
-        pass  # TODO: Once asset_freeze is available
+    @pytest.mark.parametrize("asa_config", [False], indirect=True)
+    def test_fail_global_frozen(
+        self,
+        min_fee_2x: AlgoAmount,
+        reserve: SigningAccount,
+        freeze: SigningAccount,
+        smart_asa_client: SmartAsaClient,
+        receiver: SigningAccount,
+    ) -> None:
+        _global_freeze(smart_asa_client, freeze)
+        with pytest.raises(LogicError, match=err.GLOBAL_FROZEN):
+            _transfer(
+                smart_asa_client,
+                signer=reserve,
+                asset_sender=smart_asa_client.app_address,
+                asset_receiver=receiver.address,
+                asset_amount=1,
+                fee=min_fee_2x,
+            )
 
     @pytest.mark.parametrize("asa_config", [True], indirect=True)
     def test_fail_frozen_receiver(
@@ -374,11 +444,43 @@ class TestBurn:
                 ),
             )
 
-    def test_fail_global_frozen(self) -> None:
-        pass  # TODO: Once asset_freeze is available
+    @pytest.mark.parametrize("asa_config", [False], indirect=True)
+    def test_fail_global_frozen(
+        self,
+        min_fee_2x: AlgoAmount,
+        freeze: SigningAccount,
+        smart_asa_client: SmartAsaClient,
+        reserve_with_supply: SigningAccount,
+    ) -> None:
+        _global_freeze(smart_asa_client, freeze)
+        with pytest.raises(LogicError, match=err.GLOBAL_FROZEN):
+            _transfer(
+                smart_asa_client,
+                signer=reserve_with_supply,
+                asset_sender=reserve_with_supply.address,
+                asset_receiver=smart_asa_client.app_address,
+                asset_amount=1,
+                fee=min_fee_2x,
+            )
 
-    def test_fail_frozen_reserve(self) -> None:
-        pass  # TODO: Once asset_freeze is available
+    @pytest.mark.parametrize("asa_config", [False], indirect=True)
+    def test_fail_frozen_reserve(
+        self,
+        min_fee_2x: AlgoAmount,
+        freeze: SigningAccount,
+        smart_asa_client: SmartAsaClient,
+        reserve_with_supply: SigningAccount,
+    ) -> None:
+        _account_freeze(smart_asa_client, freeze, reserve_with_supply)
+        with pytest.raises(LogicError, match=err.SENDER_FROZEN):
+            _transfer(
+                smart_asa_client,
+                signer=reserve_with_supply,
+                asset_sender=reserve_with_supply.address,
+                asset_receiver=smart_asa_client.app_address,
+                asset_amount=1,
+                fee=min_fee_2x,
+            )
 
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_clawback_burn(
@@ -455,11 +557,60 @@ class TestClawback:
             == smart_asa.total
         )
 
-    def test_pass_global_frozen(self) -> None:
-        pass  # TODO: Once asset_freeze is available
+    @pytest.mark.parametrize("asa_config", [False], indirect=True)
+    def test_pass_global_frozen(
+        self,
+        min_fee_2x: AlgoAmount,
+        smart_asa_client: SmartAsaClient,
+        clawback: SigningAccount,
+        freeze: SigningAccount,
+        account_with_supply: SigningAccount,
+        receiver: SigningAccount,
+    ) -> None:
+        smart_asa = smart_asa_client.state.global_state
+        _global_freeze(smart_asa_client, freeze)
+        _transfer(
+            smart_asa_client,
+            signer=clawback,
+            asset_sender=account_with_supply.address,
+            asset_receiver=receiver.address,
+            asset_amount=smart_asa.total,
+            fee=min_fee_2x,
+        )
+        assert (
+            smart_asa_client.algorand.asset.get_account_information(
+                receiver, smart_asa.smart_asa_id
+            ).balance
+            == smart_asa.total
+        )
 
-    def test_pass_frozen_accounts(self) -> None:
-        pass  # TODO: Once asset_freeze is available
+    @pytest.mark.parametrize("asa_config", [False], indirect=True)
+    def test_pass_frozen_accounts(
+        self,
+        min_fee_2x: AlgoAmount,
+        smart_asa_client: SmartAsaClient,
+        clawback: SigningAccount,
+        freeze: SigningAccount,
+        account_with_supply: SigningAccount,
+        receiver: SigningAccount,
+    ) -> None:
+        smart_asa = smart_asa_client.state.global_state
+        _account_freeze(smart_asa_client, freeze, account_with_supply)
+        _account_freeze(smart_asa_client, freeze, receiver)
+        _transfer(
+            smart_asa_client,
+            signer=clawback,
+            asset_sender=account_with_supply.address,
+            asset_receiver=receiver.address,
+            asset_amount=smart_asa.total,
+            fee=min_fee_2x,
+        )
+        assert (
+            smart_asa_client.algorand.asset.get_account_information(
+                receiver, smart_asa.smart_asa_id
+            ).balance
+            == smart_asa.total
+        )
 
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_unauthorized(
@@ -536,20 +687,77 @@ class TestRegularTransfer:
             == smart_asa.total
         )
 
-    def test_fail_missing_ctrl_asa(self) -> None:
-        pass  # TODO
+    def test_fail_missing_ctrl_asa(
+        self,
+        smart_asa_client_no_asset: SmartAsaClient,
+        eve: SigningAccount,
+        dummy_asa: int,
+    ) -> None:
+        with pytest.raises(LogicError, match=err.MISSING_CTRL_ASA):
+            _transfer(
+                smart_asa_client_no_asset,
+                signer=eve,
+                asset_sender=eve.address,
+                asset_receiver=eve.address,
+                asset_amount=0,
+                xfer_asset=dummy_asa,
+            )
 
-    def test_fail_invalid_ctrl_asa(self) -> None:
-        pass  # TODO
+    @pytest.mark.parametrize("asa_config", [False], indirect=True)
+    def test_fail_invalid_ctrl_asa(
+        self,
+        smart_asa_client: SmartAsaClient,
+        account_with_supply: SigningAccount,
+        receiver: SigningAccount,
+        dummy_asa: int,
+    ) -> None:
+        with pytest.raises(LogicError, match=err.INVALID_CTRL_ASA):
+            _transfer(
+                smart_asa_client,
+                signer=account_with_supply,
+                asset_sender=account_with_supply.address,
+                asset_receiver=receiver.address,
+                asset_amount=1,
+                xfer_asset=dummy_asa,
+            )
 
-    def test_fail_no_opted_in_sender(self) -> None:
-        pass  # TODO
+    @pytest.mark.parametrize("asa_config", [False], indirect=True)
+    def test_fail_no_opted_in_sender(
+        self,
+        smart_asa_client: SmartAsaClient,
+        eve: SigningAccount,
+        receiver: SigningAccount,
+    ) -> None:
+        with pytest.raises(LogicError, match=NOT_OPTED_IN):
+            _transfer(
+                smart_asa_client,
+                signer=eve,
+                asset_sender=eve.address,
+                asset_receiver=receiver.address,
+                asset_amount=0,
+            )
 
-    def test_fail_no_opted_in_receiver(self) -> None:
-        pass  # TODO
+    @pytest.mark.parametrize("asa_config", [False], indirect=True)
+    def test_fail_no_opted_in_receiver(
+        self,
+        smart_asa_client: SmartAsaClient,
+        account_with_supply: SigningAccount,
+        eve: SigningAccount,
+    ) -> None:
+        with pytest.raises(LogicError, match=NOT_OPTED_IN):
+            _transfer(
+                smart_asa_client,
+                signer=account_with_supply,
+                asset_sender=account_with_supply.address,
+                asset_receiver=eve.address,
+                asset_amount=1,
+            )
 
+    @pytest.mark.skip(
+        reason="Unreachable: asset_create is one-shot and asset_destroy deletes the app, so local state can't go stale"
+    )
     def test_fail_invalid_current_ctrl_asa(self) -> None:
-        pass  # TODO
+        pass
 
     @pytest.mark.parametrize("asa_config", [False], indirect=True)
     def test_fail_global_frozen(
