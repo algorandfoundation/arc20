@@ -3,7 +3,7 @@
 
 // algopy.arc4.ARC4Contract.approval_program() -> uint64:
 main:
-    intcblock 0 1 32 2 18446744073709551615 TMPL_ARC89_APP_ID
+    intcblock 0 1 32 2 TMPL_ARC89_APP_ID 18446744073709551615
     bytecblock "smart_asa_id" "reserve_addr" "freeze_addr" "manager_addr" "account_smart_asa_id" "account_frozen" "clawback_addr" "default_frozen" "global_frozen" 0x151f7c75 "total" "decimals" "unit_name" "name" "url" "metadata_hash" 0x00
     txn ApplicationID
     bnz main_after_if_else@2
@@ -99,6 +99,11 @@ main:
     bytec 8 // "global_frozen"
     intc_0 // 0
     app_global_put
+    // smart_contracts/arc89_smart_asa/contract.py:69-70
+    // # A zero ASA Metadata Registry App ID would match App creation calls
+    // assert TemplateVar[UInt64](ARC89_APP_ID), err.MISSING_ASA_METADATA_REGISTRY
+    intc 4 // TMPL_ARC89_APP_ID
+    assert // Missing ASA Metadata Registry App ID
 
 main_after_if_else@2:
     // smart_contracts/arc89_smart_asa/contract.py:53-62
@@ -230,7 +235,7 @@ inner_asset_transfer:
 // smart_contracts.arc89_smart_asa.contract.Arc89SmartAsa.asa_metadata_registry_init[routing]() -> void:
 asa_metadata_registry_init:
     pushbytes ""
-    // smart_contracts/arc89_smart_asa/contract.py:70
+    // smart_contracts/arc89_smart_asa/contract.py:72
     // @arc4.abimethod
     txna ApplicationArgs 1
     dup
@@ -256,12 +261,12 @@ asa_metadata_registry_init:
     assert // invalid number of bytes for arc4.bool
     intc_0 // 0
     getbit
-    // smart_contracts/arc89_smart_asa/contract.py:74-75
+    // smart_contracts/arc89_smart_asa/contract.py:76-77
     // # Preconditions
     // self._assert_common_preconditions(asset)
     swap
     callsub _assert_common_preconditions
-    // smart_contracts/arc89_smart_asa/contract.py:76
+    // smart_contracts/arc89_smart_asa/contract.py:78
     // assert Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER
     txn Sender
     intc_0 // 0
@@ -270,16 +275,16 @@ asa_metadata_registry_init:
     assert // check self.manager_addr exists
     ==
     assert // Unauthorized Manager
-    // smart_contracts/arc89_smart_asa/contract.py:78-80
+    // smart_contracts/arc89_smart_asa/contract.py:80-82
     // # All the transactions after the ASA Metadata Registry init must be calls
     // # to the ASA Metadata Registry (with an MBR payment, if required).
     // group_index = Txn.group_index
     txn GroupIndex
     swap
-    // smart_contracts/arc89_smart_asa/contract.py:81
+    // smart_contracts/arc89_smart_asa/contract.py:83
     // if has_mbr_payment:
     bz asa_metadata_registry_init_after_if_else@3
-    // smart_contracts/arc89_smart_asa/contract.py:82
+    // smart_contracts/arc89_smart_asa/contract.py:84
     // txn = gtxn.Transaction(group_index + 1)
     intc_1 // 1
     +
@@ -289,12 +294,12 @@ asa_metadata_registry_init:
     gtxns TypeEnum
     intc_1 // pay
     ==
-    // smart_contracts/arc89_smart_asa/contract.py:83
+    // smart_contracts/arc89_smart_asa/contract.py:85
     // assert _is_mbr_payment(txn), err.INVALID_ASA_METADATA_REGISTRY_MBR_PAYMENT
     assert // Must pay MBR to the ASA Metadata Registry
 
 asa_metadata_registry_init_after_if_else@3:
-    // smart_contracts/arc89_smart_asa/contract.py:85
+    // smart_contracts/arc89_smart_asa/contract.py:87
     // for idx in urange(group_index + 1, group_index + 1 + calls):
     intc_1 // 1
     +
@@ -304,7 +309,7 @@ asa_metadata_registry_init_after_if_else@3:
     bury 3
 
 asa_metadata_registry_init_for_header@4:
-    // smart_contracts/arc89_smart_asa/contract.py:85
+    // smart_contracts/arc89_smart_asa/contract.py:87
     // for idx in urange(group_index + 1, group_index + 1 + calls):
     dup
     dig 3
@@ -325,7 +330,7 @@ asa_metadata_registry_init_for_header@4:
     // and txn.app_id.id == TemplateVar[UInt64](ARC89_APP_ID)
     dup
     gtxns ApplicationID
-    intc 5 // TMPL_ARC89_APP_ID
+    intc 4 // TMPL_ARC89_APP_ID
     ==
     // smart_contracts/arc89_smart_asa/contract.py:35-37
     // txn.type == TransactionType.ApplicationCall
@@ -344,12 +349,12 @@ asa_metadata_registry_init_for_header@4:
     intc_1 // 1
 
 asa_metadata_registry_init_bool_merge@25:
-    // smart_contracts/arc89_smart_asa/contract.py:87-89
+    // smart_contracts/arc89_smart_asa/contract.py:89-91
     // assert _is_asa_metadata_registry_call(
     //     txn
     // ), err.INVALID_ASA_METADATA_REGISTRY_CALL
     assert // Must call the ASA Metadata Registry
-    // smart_contracts/arc89_smart_asa/contract.py:85
+    // smart_contracts/arc89_smart_asa/contract.py:87
     // for idx in urange(group_index + 1, group_index + 1 + calls):
     intc_1 // 1
     +
@@ -458,16 +463,16 @@ asa_metadata_registry_init_bool_merge@16:
     //     and txn.clawback == Global.current_application_address
     // ), err.INVALID_CTRL_ASA_RBAC_RECONFIG
     assert // Must grant Controlled ASA RBAC to the Smart ASA
-    // smart_contracts/arc89_smart_asa/contract.py:100
+    // smart_contracts/arc89_smart_asa/contract.py:102
     // manager=self.manager_addr,
     intc_0 // 0
     bytec_3 // "manager_addr"
     app_global_get_ex
     assert // check self.manager_addr exists
-    // smart_contracts/arc89_smart_asa/contract.py:101
+    // smart_contracts/arc89_smart_asa/contract.py:103
     // reserve=Global.current_application_address,
     global CurrentApplicationAddress
-    // smart_contracts/arc89_smart_asa/contract.py:102-103
+    // smart_contracts/arc89_smart_asa/contract.py:104-105
     // freeze=Global.current_application_address,
     // clawback=Global.current_application_address,
     dupn 2
@@ -500,7 +505,7 @@ asa_metadata_registry_init_bool_merge@16:
     //     clawback=clawback,
     // ).submit()
     itxn_submit
-    // smart_contracts/arc89_smart_asa/contract.py:70
+    // smart_contracts/arc89_smart_asa/contract.py:72
     // @arc4.abimethod
     intc_1 // 1
     return
@@ -512,7 +517,7 @@ asa_metadata_registry_init_bool_false@15:
 
 // smart_contracts.arc89_smart_asa.contract.Arc89SmartAsa.arc62_get_circulating_supply[routing]() -> void:
 arc62_get_circulating_supply:
-    // smart_contracts/arc89_smart_asa/contract.py:106
+    // smart_contracts/arc89_smart_asa/contract.py:108
     // @arc4.abimethod(readonly=True)
     txna ApplicationArgs 1
     dup
@@ -521,16 +526,16 @@ arc62_get_circulating_supply:
     ==
     assert // invalid number of bytes for arc4.uint64
     btoi
-    // smart_contracts/arc89_smart_asa/contract.py:119-120
+    // smart_contracts/arc89_smart_asa/contract.py:121-122
     // # Preconditions
     // self._assert_common_preconditions(asset)
     dup
     callsub _assert_common_preconditions
-    // smart_contracts/arc89_smart_asa/contract.py:122-123
+    // smart_contracts/arc89_smart_asa/contract.py:124-125
     // # Effects
     // return self._circulating_supply(asset)
     callsub _circulating_supply
-    // smart_contracts/arc89_smart_asa/contract.py:106
+    // smart_contracts/arc89_smart_asa/contract.py:108
     // @arc4.abimethod(readonly=True)
     itob
     bytec 9 // 0x151f7c75
@@ -707,7 +712,7 @@ asset_create:
     itxn_field ConfigAssetDecimals
     // smart_contracts/smart_asa/contract.py:241
     // total=UInt64(cfg.TOTAL),
-    intc 4 // 18446744073709551615
+    intc 5 // 18446744073709551615
     itxn_field ConfigAssetTotal
     // smart_contracts/avm_library.py:42
     // itxn.AssetConfig(
@@ -2205,7 +2210,7 @@ _circulating_supply:
     frame_dig -1
     asset_holding_get AssetBalance
     assert // account opted into asset
-    intc 4 // 18446744073709551615
+    intc 5 // 18446744073709551615
     swap
     -
     retsub
