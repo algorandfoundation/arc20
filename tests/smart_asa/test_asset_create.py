@@ -8,8 +8,10 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaClient,
 )
 from tests.conftest import SmartASAConfig
+from tests.support import BOTH_DEFAULT_FROZEN
 
 
+@BOTH_DEFAULT_FROZEN
 def test_pass_asset_create(
     min_fee_2x: AlgoAmount,
     smart_asa_client_no_asset: SmartAsaClient,

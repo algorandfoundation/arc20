@@ -13,13 +13,11 @@ from algosdk.transaction import OnComplete
 
 import smart_contracts.smart_asa.config as cfg
 from smart_contracts.artifacts.smart_asa.smart_asa_client import SmartAsaClient
+from tests.support import APPROVAL_REJECTED, ASSERT_FAILED
 
 ARTIFACTS = Path(__file__).parents[2] / "smart_contracts" / "artifacts" / "smart_asa"
 APPROVAL = (ARTIFACTS / "SmartAsa.approval.teal").read_text()
 CLEAR = (ARTIFACTS / "SmartAsa.clear.teal").read_text()
-
-# Raw app calls surface algod errors through algokit's simulate step (no source map)
-REJECTED = "rejected by ApprovalProgram"
 
 
 def test_pass_create(smart_asa_client_no_asset: SmartAsaClient) -> None:
@@ -45,7 +43,7 @@ def test_fail_update(
     creator: SigningAccount,
     smart_asa_client_no_asset: SmartAsaClient,
 ) -> None:
-    with pytest.raises(ValueError, match=REJECTED):
+    with pytest.raises(ValueError, match=APPROVAL_REJECTED):
         algorand.send.app_update(
             AppUpdateParams(
                 sender=creator.address,
@@ -63,7 +61,7 @@ def test_fail_delete(
     smart_asa_client_no_asset: SmartAsaClient,
 ) -> None:
     # Deletion is only possible through asset_destroy
-    with pytest.raises(ValueError, match=REJECTED):
+    with pytest.raises(ValueError, match=APPROVAL_REJECTED):
         algorand.send.app_delete(
             AppDeleteParams(
                 sender=creator.address, app_id=smart_asa_client_no_asset.app_id
@@ -85,7 +83,7 @@ def test_wrong_state_schema(
         "local_byte_slices": cfg.LOCAL_BYTES,
     }
     schema[schema_field] += 1
-    with pytest.raises(ValueError, match="assert failed"):
+    with pytest.raises(ValueError, match=ASSERT_FAILED):
         algorand.send.app_create(
             AppCreateParams(
                 sender=creator.address,

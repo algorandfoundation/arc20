@@ -26,11 +26,13 @@ from smart_contracts.artifacts.arc89_smart_asa.arc89_smart_asa_client import (
 )
 
 
-def _rbac_reconfig(client: Arc89SmartAsaClient, manager: SigningAccount) -> Transaction:
+def _rbac_reconfig(
+    client: Arc89SmartAsaClient, asset_id: int, manager: SigningAccount
+) -> Transaction:
     return client.algorand.create_transaction.asset_config(
         AssetConfigParams(
             sender=manager.address,
-            asset_id=client.state.global_state.smart_asa_id,
+            asset_id=asset_id,
             manager=client.app_address,
             reserve=client.app_address,
             freeze=client.app_address,
@@ -45,11 +47,12 @@ def test_registry_call(
     manager: SigningAccount,
     asa_metadata_registry: AsaMetadataRegistry,
     arc89_smart_asa_client: Arc89SmartAsaClient,
+    smart_asa_id: int,
     metadata_body: bytes,
 ) -> None:
 
     smart_asa_metadata = AssetMetadata(
-        asset_id=arc89_smart_asa_client.state.global_state.smart_asa_id,
+        asset_id=smart_asa_id,
         body=MetadataBody(metadata_body),
         flags=MetadataFlags(
             irreversible=IrreversibleFlags(arc89_native=True),
@@ -82,18 +85,21 @@ def test_registry_call(
 def test_invalid_has_payment(
     min_fee_2x: AlgoAmount,
     arc89_smart_asa_client: Arc89SmartAsaClient,
+    smart_asa_id: int,
     manager: SigningAccount,
 ) -> None:
     # Declares an MBR payment, but the next transaction is the RBAC reconfig
     composer = arc89_smart_asa_client.new_group().asa_metadata_registry_init(
         args=AsaMetadataRegistryInitArgs(
-            asset=arc89_smart_asa_client.state.global_state.smart_asa_id,
+            asset=smart_asa_id,
             calls=0,
             has_mbr_payment=True,
         ),
         params=CommonAppCallParams(sender=manager.address, static_fee=min_fee_2x),
     )
-    composer.add_transaction(_rbac_reconfig(arc89_smart_asa_client, manager))
+    composer.add_transaction(
+        _rbac_reconfig(arc89_smart_asa_client, smart_asa_id, manager)
+    )
     with pytest.raises(LogicError, match=err.INVALID_ASA_METADATA_REGISTRY_MBR_PAYMENT):
         composer.send()
 
@@ -101,12 +107,13 @@ def test_invalid_has_payment(
 def test_invalid_calls(
     min_fee_2x: AlgoAmount,
     arc89_smart_asa_client: Arc89SmartAsaClient,
+    smart_asa_id: int,
     manager: SigningAccount,
 ) -> None:
     # Declares one registry call, but the next transaction is a payment
     composer = arc89_smart_asa_client.new_group().asa_metadata_registry_init(
         args=AsaMetadataRegistryInitArgs(
-            asset=arc89_smart_asa_client.state.global_state.smart_asa_id,
+            asset=smart_asa_id,
             calls=1,
             has_mbr_payment=False,
         ),
@@ -121,7 +128,9 @@ def test_invalid_calls(
             )
         )
     )
-    composer.add_transaction(_rbac_reconfig(arc89_smart_asa_client, manager))
+    composer.add_transaction(
+        _rbac_reconfig(arc89_smart_asa_client, smart_asa_id, manager)
+    )
     with pytest.raises(LogicError, match=err.INVALID_ASA_METADATA_REGISTRY_CALL):
         composer.send()
 
@@ -129,10 +138,10 @@ def test_invalid_calls(
 def test_invalid_call_app_id(
     min_fee_2x: AlgoAmount,
     arc89_smart_asa_client: Arc89SmartAsaClient,
+    smart_asa_id: int,
     manager: SigningAccount,
 ) -> None:
     # Declares one registry call, but calls an app other than the ASA Metadata Registry
-    smart_asa_id = arc89_smart_asa_client.state.global_state.smart_asa_id
     composer = (
         arc89_smart_asa_client.new_group()
         .asa_metadata_registry_init(
@@ -146,7 +155,9 @@ def test_invalid_call_app_id(
             params=CommonAppCallParams(sender=manager.address),
         )
     )
-    composer.add_transaction(_rbac_reconfig(arc89_smart_asa_client, manager))
+    composer.add_transaction(
+        _rbac_reconfig(arc89_smart_asa_client, smart_asa_id, manager)
+    )
     with pytest.raises(LogicError, match=err.INVALID_ASA_METADATA_REGISTRY_CALL):
         composer.send()
 
@@ -154,10 +165,10 @@ def test_invalid_call_app_id(
 def test_invalid_reconfig(
     min_fee_2x: AlgoAmount,
     arc89_smart_asa_client: Arc89SmartAsaClient,
+    smart_asa_id: int,
     manager: SigningAccount,
     dummy_asa: int,
 ) -> None:
-    smart_asa_id = arc89_smart_asa_client.state.global_state.smart_asa_id
 
     ctrl_asa_reconfig = arc89_smart_asa_client.algorand.create_transaction.asset_config(
         AssetConfigParams(

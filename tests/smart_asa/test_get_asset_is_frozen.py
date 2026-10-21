@@ -1,26 +1,21 @@
 import pytest
-from algokit_utils import CommonAppCallParams, LogicError, SigningAccount
+from algokit_utils import LogicError, SigningAccount
 
 import smart_contracts.errors as err
 from smart_contracts.artifacts.smart_asa.smart_asa_client import (
-    AssetFreezeArgs,
     GetAssetIsFrozenArgs,
     SmartAsaClient,
 )
+from tests.support import global_freeze
 
 
-@pytest.mark.parametrize("asa_config", [False], indirect=True)
 def test_pass_get_asset_is_frozen(
-    smart_asa_client: SmartAsaClient, freeze: SigningAccount
+    smart_asa_client: SmartAsaClient, smart_asa_id: int, freeze: SigningAccount
 ) -> None:
-    smart_asa_id = smart_asa_client.state.global_state.smart_asa_id
     args = GetAssetIsFrozenArgs(freeze_asset=smart_asa_id)
     assert not smart_asa_client.send.get_asset_is_frozen(args).abi_return
 
-    smart_asa_client.send.asset_freeze(
-        AssetFreezeArgs(freeze_asset=smart_asa_id, asset_frozen=True),
-        params=CommonAppCallParams(signer=freeze.signer, sender=freeze.address),
-    )
+    global_freeze(smart_asa_client, smart_asa_id, freeze)
     assert smart_asa_client.send.get_asset_is_frozen(args).abi_return
 
 

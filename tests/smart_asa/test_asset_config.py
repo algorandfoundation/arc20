@@ -10,6 +10,7 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaClient,
 )
 from tests.conftest import SmartASAConfig
+from tests.support import BOTH_DEFAULT_FROZEN
 
 NEW_ASA_CONFIG = SmartASAConfig(
     total=42,
@@ -26,12 +27,13 @@ NEW_ASA_CONFIG = SmartASAConfig(
 )
 
 
+@BOTH_DEFAULT_FROZEN
 def test_pass_asset_config(
-    smart_asa_client: SmartAsaClient, manager: SigningAccount
+    smart_asa_client: SmartAsaClient, smart_asa_id: int, manager: SigningAccount
 ) -> None:
     smart_asa_client.send.asset_config(
         AssetConfigArgs(
-            config_asset=smart_asa_client.state.global_state.smart_asa_id,
+            config_asset=smart_asa_id,
             **NEW_ASA_CONFIG.dictify(),
         ),
         params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
@@ -78,20 +80,21 @@ def test_fail_invalid_ctrl_asa(
         )
 
 
-def test_fail_unauthorized_manager(smart_asa_client: SmartAsaClient) -> None:
+def test_fail_unauthorized_manager(
+    smart_asa_client: SmartAsaClient, smart_asa_id: int
+) -> None:
     with pytest.raises(LogicError, match=err.UNAUTHORIZED_MANAGER):
         smart_asa_client.send.asset_config(
             AssetConfigArgs(
-                config_asset=smart_asa_client.state.global_state.smart_asa_id,
+                config_asset=smart_asa_id,
                 **NEW_ASA_CONFIG.dictify(),
             ),
         )
 
 
 def test_fail_disabled_roles(
-    smart_asa_client: SmartAsaClient, manager: SigningAccount
+    smart_asa_client: SmartAsaClient, smart_asa_id: int, manager: SigningAccount
 ) -> None:
-    smart_asa_id = smart_asa_client.state.global_state.smart_asa_id
     asa_config = NEW_ASA_CONFIG.dictify()
     asa_config["manager_addr"] = manager.address
 
@@ -107,7 +110,7 @@ def test_fail_disabled_roles(
     with pytest.raises(LogicError, match=err.DISABLED_RESERVE):
         smart_asa_client.send.asset_config(
             AssetConfigArgs(
-                config_asset=smart_asa_client.state.global_state.smart_asa_id,
+                config_asset=smart_asa_id,
                 **asa_config,
             ),
             params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
@@ -118,7 +121,7 @@ def test_fail_disabled_roles(
     with pytest.raises(LogicError, match=err.DISABLED_FREEZE):
         smart_asa_client.send.asset_config(
             AssetConfigArgs(
-                config_asset=smart_asa_client.state.global_state.smart_asa_id,
+                config_asset=smart_asa_id,
                 **asa_config,
             ),
             params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
@@ -129,16 +132,16 @@ def test_fail_disabled_roles(
     with pytest.raises(LogicError, match=err.DISABLED_CLAWBACK):
         smart_asa_client.send.asset_config(
             AssetConfigArgs(
-                config_asset=smart_asa_client.state.global_state.smart_asa_id,
+                config_asset=smart_asa_id,
                 **asa_config,
             ),
             params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
         )
 
 
-@pytest.mark.parametrize("asa_config", [False], indirect=True)
 def test_fail_invalid_total(
     smart_asa_client: SmartAsaClient,
+    smart_asa_id: int,
     manager: SigningAccount,
     asa_config: SmartASAConfig,
     account_with_supply: SigningAccount,  # Mints the whole total
@@ -147,7 +150,7 @@ def test_fail_invalid_total(
     with pytest.raises(LogicError, match=re.escape(err.INVALID_TOTAL)):
         smart_asa_client.send.asset_config(
             AssetConfigArgs(
-                config_asset=smart_asa_client.state.global_state.smart_asa_id,
+                config_asset=smart_asa_id,
                 **asa_config.dictify(),
             ),
             params=CommonAppCallParams(sender=manager.address, signer=manager.signer),

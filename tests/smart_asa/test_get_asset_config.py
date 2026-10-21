@@ -7,13 +7,15 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaClient,
 )
 from tests.conftest import SmartASAConfig
+from tests.support import BOTH_DEFAULT_FROZEN
 
 
+@BOTH_DEFAULT_FROZEN
 def test_pass_get_asset_config(
-    smart_asa_client: SmartAsaClient, asa_config: SmartASAConfig
+    asa_config: SmartASAConfig, smart_asa_client: SmartAsaClient, smart_asa_id: int
 ) -> None:
     config = smart_asa_client.send.get_asset_config(
-        GetAssetConfigArgs(asset=smart_asa_client.state.global_state.smart_asa_id)
+        GetAssetConfigArgs(asset=smart_asa_id)
     ).abi_return
     assert config is not None
     assert config.total == asa_config.total
@@ -22,9 +24,7 @@ def test_pass_get_asset_config(
     assert config.unit_name == asa_config.unit_name
     assert config.name == asa_config.name
     assert config.url == asa_config.url
-    assert (
-        bytes(config.metadata_hash) == asa_config.metadata_hash
-    )  # decoded as list[int]
+    assert bytes(config.metadata_hash) == asa_config.metadata_hash  # list[int]
     assert config.manager_addr == asa_config.manager_addr
     assert config.reserve_addr == asa_config.reserve_addr
     assert config.freeze_addr == asa_config.freeze_addr
