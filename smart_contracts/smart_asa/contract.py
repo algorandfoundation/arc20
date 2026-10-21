@@ -312,7 +312,7 @@ class SmartAsa(
         ):  # Prevent close-out circumventing account frozen state
             self.account_frozen[Txn.sender] = True
 
-    @arc4.abimethod
+    @arc4.abimethod(resource_encoding="index")
     def asset_config(
         self,
         *,
@@ -324,10 +324,10 @@ class SmartAsa(
         name: String,
         url: String,
         metadata_hash: Bytes,
-        manager_addr: Account,
-        reserve_addr: Account,
-        freeze_addr: Account,
-        clawback_addr: Account,
+        manager_addr: arc4.Address,
+        reserve_addr: arc4.Address,
+        freeze_addr: arc4.Address,
+        clawback_addr: arc4.Address,
     ) -> None:
         """
         Configure Smart ASA (for unchanged parameters use existing value - no optional args on AVM)
@@ -349,11 +349,11 @@ class SmartAsa(
         # Preconditions
         self._assert_common_preconditions(config_asset)
         assert Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER
-        if reserve_addr != self.reserve_addr:
+        if reserve_addr.native != self.reserve_addr:
             assert self.reserve_addr != Global.zero_address, err.DISABLED_RESERVE
-        if freeze_addr != self.freeze_addr:
+        if freeze_addr.native != self.freeze_addr:
             assert self.freeze_addr != Global.zero_address, err.DISABLED_FREEZE
-        if clawback_addr != self.clawback_addr:
+        if clawback_addr.native != self.clawback_addr:
             assert self.clawback_addr != Global.zero_address, err.DISABLED_CLAWBACK
         assert total >= self._circulating_supply(config_asset), err.INVALID_TOTAL
 
@@ -366,13 +366,13 @@ class SmartAsa(
             name=name,
             url=url,
             metadata_hash=metadata_hash,
-            manager_addr=manager_addr,
-            reserve_addr=reserve_addr,
-            freeze_addr=freeze_addr,
-            clawback_addr=clawback_addr,
+            manager_addr=manager_addr.native,
+            reserve_addr=reserve_addr.native,
+            freeze_addr=freeze_addr.native,
+            clawback_addr=clawback_addr.native,
         )
 
-    @arc4.abimethod
+    @arc4.abimethod(resource_encoding="index")
     def asset_transfer(
         self,
         *,
@@ -415,7 +415,7 @@ class SmartAsa(
             asset_receiver=asset_receiver,
         )
 
-    @arc4.abimethod
+    @arc4.abimethod(resource_encoding="index")
     def asset_freeze(self, *, freeze_asset: Asset, asset_frozen: bool) -> None:
         """
         Smart ASA global freeze (all accounts)
@@ -431,7 +431,7 @@ class SmartAsa(
         # Effects
         self.global_frozen = asset_frozen
 
-    @arc4.abimethod
+    @arc4.abimethod(resource_encoding="index")
     def account_freeze(
         self, *, freeze_asset: Asset, freeze_account: Account, asset_frozen: bool
     ) -> None:
@@ -483,7 +483,7 @@ class SmartAsa(
                 asset_receiver=close_to,
             )
 
-    @arc4.abimethod(allow_actions=["DeleteApplication"])
+    @arc4.abimethod(allow_actions=["DeleteApplication"], resource_encoding="index")
     def asset_destroy(self, *, destroy_asset: Asset) -> None:
         """
         Destroy the Smart ASA
@@ -511,7 +511,7 @@ class SmartAsa(
         self.smart_asa_id = UInt64()
         self.global_frozen = False
 
-    @arc4.abimethod(readonly=True)
+    @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_asset_config(self, *, asset: Asset) -> AssetConfig:
         """
         Get Smart ASA configuration
@@ -540,7 +540,7 @@ class SmartAsa(
             clawback_addr=self.clawback_addr,
         )
 
-    @arc4.abimethod(readonly=True)
+    @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_asset_is_frozen(self, *, freeze_asset: Asset) -> bool:
         """
         Get Smart ASA global frozen status
@@ -557,7 +557,7 @@ class SmartAsa(
         # Effects
         return self.global_frozen
 
-    @arc4.abimethod(readonly=True)
+    @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_account_is_frozen(
         self, *, freeze_asset: Asset, freeze_account: Account
     ) -> bool:
@@ -577,7 +577,7 @@ class SmartAsa(
         # Effects
         return self.account_frozen[freeze_account]
 
-    @arc4.abimethod(readonly=True)
+    @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_circulating_supply(self, *, asset: Asset) -> UInt64:
         """
         Get Smart ASA circulating supply
