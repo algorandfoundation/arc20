@@ -199,11 +199,6 @@ def test_pass_close_out_to_creator_without_inner_fee(
     )
 
 
-@pytest.mark.skip(reason=UNREACHABLE)
-def test_pass_destroyed_asset() -> None:
-    pass
-
-
 def test_fail_wrong_on_complete(
     smart_asa_client: SmartAsaClient,
     smart_asa_id: int,

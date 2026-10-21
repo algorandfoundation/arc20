@@ -11,16 +11,23 @@ from tests.conftest import SmartASAConfig
 from tests.support import clear_state, transfer
 
 
+def _micro_algo(client: SmartAsaClient, address: str) -> int:
+    return client.algorand.account.get_information(address).amount.micro_algo
+
+
 def test_pass_destroy(
-    min_fee_2x: AlgoAmount,
+    min_fee_3x: AlgoAmount,
     smart_asa_client: SmartAsaClient,
     smart_asa_id: int,
     manager: SigningAccount,
 ) -> None:
+    app_balance = _micro_algo(smart_asa_client, smart_asa_client.app_address)
+    manager_balance = _micro_algo(smart_asa_client, manager.address)
+
     smart_asa_client.send.delete.asset_destroy(
         AssetDestroyArgs(destroy_asset=smart_asa_id),
         params=CommonAppCallParams(
-            static_fee=min_fee_2x,
+            static_fee=min_fee_3x,  # Asset destroy and App account close
             signer=manager.signer,
             sender=manager.address,
         ),
@@ -31,9 +38,17 @@ def test_pass_destroy(
     with pytest.raises(AlgodHTTPError, match="asset does not exist"):
         smart_asa_client.algorand.asset.get_by_id(smart_asa_id)
 
+    # The App account is closed to the Manager, who paid the fees
+    assert _micro_algo(smart_asa_client, smart_asa_client.app_address) == 0
+    assert (
+        _micro_algo(smart_asa_client, manager.address)
+        == manager_balance + app_balance - min_fee_3x.micro_algo
+    )
+
 
 def test_pass_destroy_after_recovering_from_holder_without_local_state(
     min_fee_2x: AlgoAmount,
+    min_fee_3x: AlgoAmount,
     asa_config: SmartASAConfig,
     smart_asa_client: SmartAsaClient,
     smart_asa_id: int,
@@ -55,7 +70,7 @@ def test_pass_destroy_after_recovering_from_holder_without_local_state(
     smart_asa_client.send.delete.asset_destroy(
         AssetDestroyArgs(destroy_asset=smart_asa_id),
         params=CommonAppCallParams(
-            static_fee=min_fee_2x,
+            static_fee=min_fee_3x,
             signer=manager.signer,
             sender=manager.address,
         ),

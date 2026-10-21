@@ -44,6 +44,13 @@ def min_fee_2x(algorand: AlgorandClient) -> AlgoAmount:
 
 
 @pytest.fixture(scope="session")
+def min_fee_3x(algorand: AlgorandClient) -> AlgoAmount:
+    return AlgoAmount.from_micro_algo(
+        algorand.client.algod.suggested_params().min_fee * 3
+    )
+
+
+@pytest.fixture(scope="session")
 def deployer(algorand: AlgorandClient) -> SigningAccount:
     account = algorand.account.from_environment("DEPLOYER")
     return account
