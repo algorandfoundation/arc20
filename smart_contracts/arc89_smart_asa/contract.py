@@ -66,6 +66,8 @@ class Arc89SmartAsa(
 
     def __init__(self) -> None:
         SmartAsa.__init__(self)
+        # A zero ASA Metadata Registry App ID would match App creation calls
+        assert TemplateVar[UInt64](ARC89_APP_ID), err.MISSING_ASA_METADATA_REGISTRY
 
     @arc4.abimethod
     def asa_metadata_registry_init(
