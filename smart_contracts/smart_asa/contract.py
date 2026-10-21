@@ -7,7 +7,6 @@ from algopy import (
     OnCompleteAction,
     StateTotals,
     String,
-    TransactionType,
     Txn,
     UInt64,
     arc4,
@@ -133,7 +132,6 @@ class SmartAsa(
 
     def _assert_close_out_preconditions(self, close_asset: Asset) -> None:
         asa_close_out_relative_idx = Txn.group_index + 1
-        asa_close_out_txn = gtxn.AssetTransferTransaction(asa_close_out_relative_idx)
         assert Txn.on_completion == OnCompleteAction.CloseOut, err.WRONG_ON_COMPLETE
         assert (
             self.account_smart_asa_id[Txn.sender] == close_asset.id
@@ -141,9 +139,8 @@ class SmartAsa(
         assert (
             Global.group_size > asa_close_out_relative_idx
         ), err.INVALID_CLOSE_OUT_GROUP_SIZE
-        assert (
-            asa_close_out_txn.type == TransactionType.AssetTransfer
-        ), err.CLOSE_OUT_WRONG_TYPE  # TODO: Redundant?
+        # The typed group transaction asserts its type (Asset Transfer)
+        asa_close_out_txn = gtxn.AssetTransferTransaction(asa_close_out_relative_idx)
         assert (
             asa_close_out_txn.xfer_asset.id == close_asset.id
         ), err.CLOSE_OUT_WRONG_ASA
@@ -286,9 +283,6 @@ class SmartAsa(
         """
         # Preconditions
         self._assert_common_preconditions(asset)
-        assert (
-            ctrl_asa_opt_in.type == TransactionType.AssetTransfer
-        ), err.OPT_IN_WRONG_TYPE  # Pedant
         assert ctrl_asa_opt_in.xfer_asset.id == self.smart_asa_id, err.OPT_IN_WRONG_ASA
         assert ctrl_asa_opt_in.sender == Txn.sender, err.OPT_IN_WRONG_SENDER
         assert ctrl_asa_opt_in.asset_receiver == Txn.sender, err.OPT_IN_WRONG_RECEIVER
