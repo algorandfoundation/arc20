@@ -4,22 +4,19 @@ import pytest
 from algokit_utils import (
     AlgoAmount,
     AlgorandClient,
-    AssetOptInParams,
     CommonAppCallParams,
     SigningAccount,
 )
 from algokit_utils.config import config
-from algosdk.atomic_transaction_composer import TransactionWithSigner
 
 from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     AssetConfigArgs,
     AssetCreateArgs,
-    AssetOptInArgs,
-    AssetTransferArgs,
     SmartAsaClient,
     SmartAsaFactory,
 )
-from tests.conftest import INITIAL_FUNDS, SmartASAConfig
+from tests.conftest import SmartASAConfig
+from tests.support import INITIAL_FUNDS, funded_account, opt_in, transfer
 
 
 @pytest.fixture(scope="function")
@@ -45,9 +42,7 @@ def smart_asa_client_no_asset(
     return client
 
 
-@pytest.fixture(
-    scope="function", params=[False, True], ids=["Not Default Frozen", "Default Frozen"]
-)
+@pytest.fixture(scope="function")
 def asa_config(
     manager: SigningAccount,
     reserve: SigningAccount,
@@ -55,13 +50,14 @@ def asa_config(
     clawback: SigningAccount,
     request: pytest.FixtureRequest,
 ) -> SmartASAConfig:
+    # Not default frozen, unless parametrized indirectly (see tests.support)
     return SmartASAConfig(
         manager_addr=manager.address,
         reserve_addr=reserve.address,
         freeze_addr=freeze.address,
         clawback_addr=clawback.address,
         url="ipfs://<asa-metadata-uri>",
-        default_frozen=request.param,
+        default_frozen=getattr(request, "param", False),
     )
 
 
@@ -79,32 +75,18 @@ def smart_asa_client(
 
 
 @pytest.fixture(scope="function")
-def opted_in_account_factory(
-    algorand: AlgorandClient, smart_asa_client: SmartAsaClient
-) -> Callable[..., SigningAccount]:
-    def _factory() -> SigningAccount:
-        account = algorand.account.random()
-        algorand.account.ensure_funded_from_environment(
-            account_to_fund=account.address,
-            min_spending_balance=INITIAL_FUNDS,
-        )
-        smart_asa_id = smart_asa_client.state.global_state.smart_asa_id
+def smart_asa_id(smart_asa_client: SmartAsaClient) -> int:
+    # Read once: the typed global state is fetched lazily from the app on each access
+    return smart_asa_client.state.global_state.smart_asa_id
 
-        smart_asa_client.send.opt_in.asset_opt_in(
-            AssetOptInArgs(
-                asset=smart_asa_id,
-                ctrl_asa_opt_in=TransactionWithSigner(
-                    txn=algorand.create_transaction.asset_opt_in(
-                        AssetOptInParams(asset_id=smart_asa_id, sender=account.address)
-                    ),
-                    signer=account.signer,
-                ),
-            ),
-            params=CommonAppCallParams(
-                signer=account.signer,
-                sender=account.address,
-            ),
-        )
+
+@pytest.fixture(scope="function")
+def opted_in_account_factory(
+    algorand: AlgorandClient, smart_asa_client: SmartAsaClient, smart_asa_id: int
+) -> Callable[[], SigningAccount]:
+    def _factory() -> SigningAccount:
+        account = funded_account(algorand)
+        opt_in(smart_asa_client, smart_asa_id, account)
         return account
 
     return _factory
@@ -112,7 +94,7 @@ def opted_in_account_factory(
 
 @pytest.fixture(scope="function")
 def receiver(
-    opted_in_account_factory: Callable[..., SigningAccount],
+    opted_in_account_factory: Callable[[], SigningAccount],
 ) -> SigningAccount:
     return opted_in_account_factory()
 
@@ -123,59 +105,33 @@ def reserve_and_clawback(
     reserve: SigningAccount,
     asa_config: SmartASAConfig,
     smart_asa_client: SmartAsaClient,
+    smart_asa_id: int,
 ) -> SigningAccount:
     asa_config.clawback_addr = asa_config.reserve_addr
     smart_asa_client.send.asset_config(
-        AssetConfigArgs(
-            config_asset=smart_asa_client.state.global_state.smart_asa_id,
-            **asa_config.dictify(),
-        ),
-        params=CommonAppCallParams(
-            signer=manager.signer,
-            sender=manager.address,
-        ),
+        AssetConfigArgs(config_asset=smart_asa_id, **asa_config.dictify()),
+        params=CommonAppCallParams(signer=manager.signer, sender=manager.address),
     )
     return reserve
 
 
 @pytest.fixture(scope="function")
 def reserve_with_supply(
-    algorand: AlgorandClient,
     min_fee_2x: AlgoAmount,
     reserve: SigningAccount,
+    asa_config: SmartASAConfig,
     smart_asa_client: SmartAsaClient,
+    smart_asa_id: int,
 ) -> SigningAccount:
-    smart_asa = smart_asa_client.state.global_state
-    smart_asa_id = smart_asa.smart_asa_id
-    ctrl_asa_opt_in = TransactionWithSigner(
-        txn=algorand.create_transaction.asset_opt_in(
-            AssetOptInParams(asset_id=smart_asa_id, sender=reserve.address)
-        ),
-        signer=reserve.signer,
-    )
-    smart_asa_client.send.opt_in.asset_opt_in(
-        AssetOptInArgs(
-            asset=smart_asa_id,
-            ctrl_asa_opt_in=ctrl_asa_opt_in,
-        ),
-        params=CommonAppCallParams(
-            signer=reserve.signer,
-            sender=reserve.address,
-        ),
-    )
-
-    smart_asa_client.send.asset_transfer(
-        AssetTransferArgs(
-            xfer_asset=smart_asa_id,
-            asset_amount=smart_asa.total,
-            asset_sender=smart_asa_client.app_address,
-            asset_receiver=reserve.address,
-        ),
-        params=CommonAppCallParams(
-            static_fee=min_fee_2x,
-            signer=reserve.signer,
-            sender=reserve.address,
-        ),
+    opt_in(smart_asa_client, smart_asa_id, reserve)
+    transfer(
+        smart_asa_client,
+        smart_asa_id,
+        signer=reserve,
+        asset_sender=smart_asa_client.app_address,
+        asset_receiver=reserve.address,
+        asset_amount=asa_config.total,
+        fee=min_fee_2x,
     )
     return reserve
 
@@ -184,23 +140,19 @@ def reserve_with_supply(
 def account_with_supply(
     min_fee_2x: AlgoAmount,
     reserve: SigningAccount,
+    asa_config: SmartASAConfig,
     smart_asa_client: SmartAsaClient,
-    opted_in_account_factory: Callable[..., SigningAccount],
+    smart_asa_id: int,
+    opted_in_account_factory: Callable[[], SigningAccount],
 ) -> SigningAccount:
     account = opted_in_account_factory()
-    smart_asa = smart_asa_client.state.global_state
-
-    smart_asa_client.send.asset_transfer(
-        AssetTransferArgs(
-            xfer_asset=smart_asa.smart_asa_id,
-            asset_amount=smart_asa.total,
-            asset_sender=smart_asa_client.app_address,
-            asset_receiver=account.address,
-        ),
-        params=CommonAppCallParams(
-            static_fee=min_fee_2x,
-            signer=reserve.signer,
-            sender=reserve.address,
-        ),
+    transfer(
+        smart_asa_client,
+        smart_asa_id,
+        signer=reserve,
+        asset_sender=smart_asa_client.app_address,
+        asset_receiver=account.address,
+        asset_amount=asa_config.total,
+        fee=min_fee_2x,
     )
     return account

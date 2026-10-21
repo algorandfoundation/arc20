@@ -3,12 +3,10 @@ from algokit_utils import (
     AlgoAmount,
     AlgorandClient,
     AppClientCompilationParams,
-    AssetOptInParams,
     CommonAppCallParams,
     SigningAccount,
 )
 from algokit_utils.config import config
-from algosdk.atomic_transaction_composer import TransactionWithSigner
 from asa_metadata_registry import Arc90Compliance, Arc90Uri, AsaMetadataRegistry
 from asa_metadata_registry.generated.asa_metadata_registry_client import (
     AsaMetadataRegistryFactory,
@@ -19,10 +17,9 @@ from smart_contracts.artifacts.arc89_smart_asa.arc89_smart_asa_client import (
     Arc89SmartAsaClient,
     Arc89SmartAsaFactory,
     AssetCreateArgs,
-    AssetOptInArgs,
-    AssetTransferArgs,
 )
-from tests.conftest import INITIAL_FUNDS, SmartASAConfig
+from tests.conftest import SmartASAConfig
+from tests.support import INITIAL_FUNDS, opt_in, transfer
 
 
 @pytest.fixture(scope="session")
@@ -117,42 +114,27 @@ def arc89_smart_asa_client(
 
 
 @pytest.fixture(scope="function")
+def smart_asa_id(arc89_smart_asa_client: Arc89SmartAsaClient) -> int:
+    # Read once: the typed global state is fetched lazily from the app on each access
+    return arc89_smart_asa_client.state.global_state.smart_asa_id
+
+
+@pytest.fixture(scope="function")
 def reserve_with_supply(
-    algorand: AlgorandClient,
     min_fee_2x: AlgoAmount,
     reserve: SigningAccount,
+    arc89_asa_config: SmartASAConfig,
     arc89_smart_asa_client: Arc89SmartAsaClient,
+    smart_asa_id: int,
 ) -> SigningAccount:
-    smart_asa = arc89_smart_asa_client.state.global_state
-    smart_asa_id = smart_asa.smart_asa_id
-    ctrl_asa_opt_in = TransactionWithSigner(
-        txn=algorand.create_transaction.asset_opt_in(
-            AssetOptInParams(asset_id=smart_asa_id, sender=reserve.address)
-        ),
-        signer=reserve.signer,
-    )
-    arc89_smart_asa_client.send.opt_in.asset_opt_in(
-        AssetOptInArgs(
-            asset=smart_asa_id,
-            ctrl_asa_opt_in=ctrl_asa_opt_in,
-        ),
-        params=CommonAppCallParams(
-            signer=reserve.signer,
-            sender=reserve.address,
-        ),
-    )
-
-    arc89_smart_asa_client.send.asset_transfer(
-        AssetTransferArgs(
-            xfer_asset=smart_asa_id,
-            asset_amount=smart_asa.total,
-            asset_sender=arc89_smart_asa_client.app_address,
-            asset_receiver=reserve.address,
-        ),
-        params=CommonAppCallParams(
-            static_fee=min_fee_2x,
-            signer=reserve.signer,
-            sender=reserve.address,
-        ),
+    opt_in(arc89_smart_asa_client, smart_asa_id, reserve)
+    transfer(
+        arc89_smart_asa_client,
+        smart_asa_id,
+        signer=reserve,
+        asset_sender=arc89_smart_asa_client.app_address,
+        asset_receiver=reserve.address,
+        asset_amount=arc89_asa_config.total,
+        fee=min_fee_2x,
     )
     return reserve

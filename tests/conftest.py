@@ -1,5 +1,4 @@
 from dataclasses import asdict, dataclass
-from typing import Final
 
 import pytest
 from algokit_utils import (
@@ -9,7 +8,7 @@ from algokit_utils import (
     SigningAccount,
 )
 
-INITIAL_FUNDS: Final[AlgoAmount] = AlgoAmount.from_algo(100)
+from tests.support import funded_account
 
 
 @dataclass(kw_only=True)
@@ -52,62 +51,32 @@ def deployer(algorand: AlgorandClient) -> SigningAccount:
 
 @pytest.fixture(scope="session")
 def creator(algorand: AlgorandClient) -> SigningAccount:
-    account = algorand.account.random()
-    algorand.account.ensure_funded_from_environment(
-        account_to_fund=account.address,
-        min_spending_balance=INITIAL_FUNDS,
-    )
-    return account
+    return funded_account(algorand)
 
 
 @pytest.fixture(scope="session")
 def manager(algorand: AlgorandClient) -> SigningAccount:
-    account = algorand.account.random()
-    algorand.account.ensure_funded_from_environment(
-        account_to_fund=account.address,
-        min_spending_balance=INITIAL_FUNDS,
-    )
-    return account
+    return funded_account(algorand)
 
 
 @pytest.fixture(scope="session")
 def reserve(algorand: AlgorandClient) -> SigningAccount:
-    account = algorand.account.random()
-    algorand.account.ensure_funded_from_environment(
-        account_to_fund=account.address,
-        min_spending_balance=INITIAL_FUNDS,
-    )
-    return account
+    return funded_account(algorand)
 
 
 @pytest.fixture(scope="session")
 def freeze(algorand: AlgorandClient) -> SigningAccount:
-    account = algorand.account.random()
-    algorand.account.ensure_funded_from_environment(
-        account_to_fund=account.address,
-        min_spending_balance=INITIAL_FUNDS,
-    )
-    return account
+    return funded_account(algorand)
 
 
 @pytest.fixture(scope="session")
 def clawback(algorand: AlgorandClient) -> SigningAccount:
-    account = algorand.account.random()
-    algorand.account.ensure_funded_from_environment(
-        account_to_fund=account.address,
-        min_spending_balance=INITIAL_FUNDS,
-    )
-    return account
+    return funded_account(algorand)
 
 
 @pytest.fixture(scope="session")
 def eve(algorand: AlgorandClient) -> SigningAccount:
-    account = algorand.account.random()
-    algorand.account.ensure_funded_from_environment(
-        account_to_fund=account.address,
-        min_spending_balance=INITIAL_FUNDS,
-    )
-    return account
+    return funded_account(algorand)
 
 
 @pytest.fixture(scope="session")
