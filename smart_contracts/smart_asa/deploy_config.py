@@ -78,7 +78,7 @@ def deploy() -> None:
                 metadata_hash=ASA_METADATA_HASH,
                 url=ASA_URL,
                 manager_addr=deployer.address,
-                reserve_addr=smart_asa_app_client.app_address,
+                reserve_addr=deployer.address,
                 clawback_addr=deployer.address,
                 freeze_addr=deployer.address,
             ),

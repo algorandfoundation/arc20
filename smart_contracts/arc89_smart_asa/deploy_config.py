@@ -179,7 +179,7 @@ def deploy() -> None:
                 metadata_hash=ASA_METADATA_HASH,
                 url=arc90_uri.to_uri(),
                 manager_addr=deployer.address,
-                reserve_addr=arc89_smart_asa_app_client.app_address,
+                reserve_addr=deployer.address,
                 clawback_addr=deployer.address,
                 freeze_addr=deployer.address,
             ),
