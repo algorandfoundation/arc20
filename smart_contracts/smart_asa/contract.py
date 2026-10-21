@@ -98,23 +98,20 @@ class SmartAsa(
     def _assert_burning_preconditions(self, *, asset_sender: Account) -> None:
         # Burn permission restricted to Reserve.
         assert Txn.sender == self.reserve_addr, err.UNAUTHORIZED_RESERVE
-        # In case of Controlled ASA destroyed and re-created the Smart ADA ID in Local State could be outdated.
-        assert (
-            self.account_smart_asa_id[asset_sender] == self.smart_asa_id
-        ), err.INVALID_CTRL_ASA
         assert not self.global_frozen, err.GLOBAL_FROZEN
+        # A Reserve that is also Clawback can burn from any holder, opted-in or not.
         if self.reserve_addr != self.clawback_addr:
+            # In case of Controlled ASA destroyed and re-created the Smart ADA ID in Local State could be outdated.
+            assert (
+                self.account_smart_asa_id[asset_sender] == self.smart_asa_id
+            ), err.INVALID_CTRL_ASA
             assert not self.account_frozen[asset_sender], err.SENDER_FROZEN
             # Forbidden clawback through burning (burned amount not from Reserve).
             assert asset_sender == self.reserve_addr, err.CLAWBACK_BURN
 
-    def _assert_clawback_preconditions(
-        self, *, asset_sender: Account, asset_receiver: Account
-    ) -> None:
-        # In the case of Controlled ASA destroyed and re-created, the Smart ADA ID in Local State could be outdated.
-        assert (
-            self.account_smart_asa_id[asset_sender] == self.smart_asa_id
-        ), err.INVALID_CTRL_ASA
+    def _assert_clawback_preconditions(self, *, asset_receiver: Account) -> None:
+        # As for native ASA, the clawed back holder needs no App Local State (e.g. after
+        # a ClearState). The receiver does, so clawed back units always have a frozen flag.
         assert (
             self.account_smart_asa_id[asset_receiver] == self.smart_asa_id
         ), err.INVALID_CTRL_ASA
@@ -404,9 +401,7 @@ class SmartAsa(
         elif asset_receiver == Global.current_application_address:
             self._assert_burning_preconditions(asset_sender=asset_sender)
         elif Txn.sender == self.clawback_addr:
-            self._assert_clawback_preconditions(
-                asset_sender=asset_sender, asset_receiver=asset_receiver
-            )
+            self._assert_clawback_preconditions(asset_receiver=asset_receiver)
         else:
             self._assert_regular_transfer_preconditions(
                 asset_sender=asset_sender, asset_receiver=asset_receiver
