@@ -19,7 +19,6 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import SmartAsaClient
 from tests.conftest import SmartASAConfig
 from tests.support import (
     ASSERT_FAILED,
-    GTXN_OUT_OF_RANGE,
     UNREACHABLE,
     account_freeze,
     asa_close_out_txn,
@@ -65,7 +64,9 @@ class _NextTxn:
 
 # (transaction after the close-out call, expected error)
 INVALID_CLOSE_OUT_GROUPS = [
-    pytest.param(lambda g: None, GTXN_OUT_OF_RANGE, id="no asset close-out"),
+    pytest.param(
+        lambda g: None, err.INVALID_CLOSE_OUT_GROUP_SIZE, id="no asset close-out"
+    ),
     pytest.param(
         lambda g: g.payment(), "transaction type is axfer", id="not an asset transfer"
     ),
@@ -172,6 +173,29 @@ def test_pass_close_out_account_frozen(
     assert (
         smart_asa_id
         not in algorand.account.get_information(account_with_supply.address).assets
+    )
+
+
+def test_pass_close_out_to_creator_without_inner_fee(
+    algorand: AlgorandClient,
+    smart_asa_client: SmartAsaClient,
+    smart_asa_id: int,
+    account_with_supply: SigningAccount,
+) -> None:
+    # No inner transfer when closing out to the Creator: the minimum fee is enough
+    close_out(
+        smart_asa_client,
+        smart_asa_id,
+        account_with_supply,
+        close_to=smart_asa_client.app_address,
+    )
+    assert (
+        smart_asa_id
+        not in algorand.account.get_information(account_with_supply.address).assets
+    )
+    assert (
+        balance(smart_asa_client, smart_asa_id, smart_asa_client.app_address)
+        == cfg.TOTAL
     )
 
 
@@ -292,7 +316,7 @@ def test_fail_close_out_target_frozen(
     receiver: SigningAccount,
 ) -> None:
     account_freeze(smart_asa_client, smart_asa_id, freeze, receiver.address)
-    with pytest.raises(LogicError, match=err.CLOSE_TO_FROZEN):
+    with pytest.raises(LogicError, match=err.RECEIVER_FROZEN):
         close_out(
             smart_asa_client,
             smart_asa_id,
