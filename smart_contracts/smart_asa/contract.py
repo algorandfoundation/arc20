@@ -86,7 +86,7 @@ class SmartAsa(
             asset_amount + self._circulating_supply(Asset(self.smart_asa_id))
             <= self.total
         ), err.OVER_MINT
-        # In the case of Controlled ASA destroyed and re-created, the Smart ADA ID in Local State could be outdated.
+        # In the case of Controlled ASA destroyed and re-created, the Smart ASA ID in Local State could be outdated.
         assert (
             self.account_smart_asa_id[asset_receiver] == self.smart_asa_id
         ), err.INVALID_CTRL_ASA
@@ -100,7 +100,7 @@ class SmartAsa(
         assert not self.global_frozen, err.GLOBAL_FROZEN
         # A Reserve that is also Clawback can burn from any holder, opted-in or not.
         if self.reserve_addr != self.clawback_addr:
-            # In case of Controlled ASA destroyed and re-created the Smart ADA ID in Local State could be outdated.
+            # In case of Controlled ASA destroyed and re-created the Smart ASA ID in Local State could be outdated.
             assert (
                 self.account_smart_asa_id[asset_sender] == self.smart_asa_id
             ), err.INVALID_CTRL_ASA
@@ -127,7 +127,7 @@ class SmartAsa(
         self, *, asset_sender: Account, asset_receiver: Account
     ) -> None:
         # Holder-to-holder policy, shared by regular transfers and close-outs to an account
-        # In the case of Controlled ASA destroyed and re-created, the Smart ADA ID in Local State could be outdated.
+        # In the case of Controlled ASA destroyed and re-created, the Smart ASA ID in Local State could be outdated.
         assert (
             self.account_smart_asa_id[asset_sender] == self.smart_asa_id
         ), err.INVALID_CTRL_ASA
@@ -335,7 +335,7 @@ class SmartAsa(
 
         Args:
             config_asset: Smart ASA ID to configure
-            total: Total number of base units if the Smart ASA. It can not be less than current circulating supply
+            total: Total number of base units of the Smart ASA. It can not be less than current circulating supply
             decimals: The number of digits to use after the decimal point when displaying the Smart ASA
             default_frozen: Smart ASA default frozen (True to freeze holdings by default)
             unit_name: The name of a unit of Smart ASA

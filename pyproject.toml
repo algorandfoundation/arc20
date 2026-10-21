@@ -8,7 +8,7 @@ authors = ["cusma <cosimo.bassi@algorand.foundation>"]
 maintainers = ["cusma <cosimo.bassi@gmail.com>"]
 readme = ["README.md"]
 documentation = "https://dev.algorand.co/arc-standards/arc-0020/"
-repository = "https://github.com/cusma/arc20"
+repository = "https://github.com/algorandfoundation/arc20"
 keywords = ["algorand", "blockchain", "tokenization"]
 
 [tool.poetry.dependencies]
