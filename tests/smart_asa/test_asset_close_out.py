@@ -19,7 +19,6 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import SmartAsaClient
 from tests.conftest import SmartASAConfig
 from tests.support import (
     ASSERT_FAILED,
-    UNREACHABLE,
     account_freeze,
     asa_close_out_txn,
     balance,
@@ -217,7 +216,7 @@ def test_fail_wrong_on_complete(
         )
 
 
-def test_fail_invalid_local_ctrl_asa(
+def test_fail_invalid_ctrl_asa(
     smart_asa_client: SmartAsaClient,
     smart_asa_id: int,
     account_with_supply: SigningAccount,
@@ -262,11 +261,6 @@ def test_fail_invalid_close_out_group(
         composer.add_transaction(txn.txn, signer=txn.signer)
     with pytest.raises(LogicError, match=error):
         composer.send()
-
-
-@pytest.mark.skip(reason=UNREACHABLE)
-def test_fail_invalid_ctrl_asa() -> None:
-    pass
 
 
 def test_fail_close_out_frozen_asset(

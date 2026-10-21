@@ -4,7 +4,7 @@ from algokit_utils import LogicError, SigningAccount
 import smart_contracts.errors as err
 from smart_contracts.artifacts.smart_asa.smart_asa_client import SmartAsaClient
 from tests.conftest import SmartASAConfig
-from tests.support import BOTH_DEFAULT_FROZEN, NOT_OPTED_IN, UNREACHABLE, account_freeze
+from tests.support import BOTH_DEFAULT_FROZEN, account_freeze
 
 
 @BOTH_DEFAULT_FROZEN
@@ -54,10 +54,5 @@ def test_fail_not_opted_in(
     freeze: SigningAccount,
     eve: SigningAccount,
 ) -> None:
-    with pytest.raises(LogicError, match=NOT_OPTED_IN):
+    with pytest.raises(LogicError, match=err.NOT_OPTED_IN):
         account_freeze(smart_asa_client, smart_asa_id, freeze, eve.address)
-
-
-@pytest.mark.skip(reason=UNREACHABLE)
-def test_fail_invalid_current_ctrl_asa() -> None:
-    pass

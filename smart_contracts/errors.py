@@ -13,6 +13,7 @@ UNAUTHORIZED_FREEZE = "Unauthorized Freeze"
 UNAUTHORIZED_CLAWBACK = "Unauthorized Clawback"
 
 MISSING_CTRL_ASA = "Missing Controlled ASA"
+NOT_OPTED_IN = "Account not opted in to the Smart ASA"
 INVALID_CTRL_ASA = "Invalid Controlled ASA ID"
 EXISTING_CTRL_ASA = "Controlled ASA already created"
 
@@ -45,6 +46,7 @@ SELF_MINT = "Forbidden self minting"
 OVER_MINT = "Forbidden over minting"
 CLAWBACK_BURN = "Forbidden clawback burning"
 
+MISSING_ASA_METADATA_REGISTRY = "Missing ASA Metadata Registry App ID"
 INVALID_ASA_METADATA_REGISTRY_MBR_PAYMENT = "Must pay MBR to the ASA Metadata Registry"
 INVALID_ASA_METADATA_REGISTRY_CALL = "Must call the ASA Metadata Registry"
 INVALID_CTRL_ASA_RBAC_RECONFIG = "Must grant Controlled ASA RBAC to the Smart ASA"

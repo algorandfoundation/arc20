@@ -131,6 +131,8 @@ def deploy() -> None:
     else:
         raise OSError("Unsupported network for deployment")
     logger.info(f"ASA Metadata Registry deployment: {registry_deployment}")
+    if not registry_deployment.app_id:
+        raise ValueError("Missing ASA Metadata Registry App ID")
 
     factory = algorand.client.get_typed_app_factory(
         Arc89SmartAsaFactory,

@@ -63,8 +63,8 @@ The following is the structure of a Smart ASA - ASA Metadata Registry atomic int
   role to the Smart ASA Manager;
 
 - `[Txn: 1...N]`: Calls to the ASA Metadata Registry Application to perform the
-  desired operation (e.g., create or update the Asset Metadata) with eventual MBR
-  payments (if needed);
+  desired operation (e.g., create or update the Asset Metadata), optionally preceded
+  by one MBR payment (operations needing more payments, or elsewhere, aren't supported);
 
 - `[Txn: N+1]`: `AssetConfig` transaction that returns the Controlled ASA RBAC
   back to the original Smart ASA Application.
@@ -72,6 +72,9 @@ The following is the structure of a Smart ASA - ASA Metadata Registry atomic int
 The Smart ASA Application ensures that the Controlled ASA Manager role is granted
 to the Smart ASA Manager, only for the duration of the atomic interaction with the
 ASA Metadata Registry (of any kind), and that it is revoked immediately after.
+
+The ASA Metadata Registry App ID is set on deployment (`ARC89_APP_ID` template variable):
+the Smart ASA Application creation fails if it's missing.
 
 ## Roles and Transfers
 

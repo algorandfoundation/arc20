@@ -6,8 +6,6 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import SmartAsaClient
 from tests.conftest import SmartASAConfig
 from tests.support import (
     DEFAULT_FROZEN,
-    NOT_OPTED_IN,
-    UNREACHABLE,
     account_freeze,
     add_transfer,
     balance,
@@ -168,7 +166,7 @@ class TestMint:
     ) -> None:
         # Fail-closed: a Reserve that cleared its App Local State can't mint
         clear_state(smart_asa_client, reserve)
-        with pytest.raises(LogicError, match=NOT_OPTED_IN):
+        with pytest.raises(LogicError, match=err.NOT_OPTED_IN):
             transfer(
                 smart_asa_client,
                 smart_asa_id,
@@ -593,7 +591,7 @@ class TestClawback:
         account_with_supply: SigningAccount,
         eve: SigningAccount,
     ) -> None:
-        with pytest.raises(LogicError, match=NOT_OPTED_IN):
+        with pytest.raises(LogicError, match=err.NOT_OPTED_IN):
             transfer(
                 smart_asa_client,
                 smart_asa_id,
@@ -690,7 +688,7 @@ class TestRegularTransfer:
         eve: SigningAccount,
         receiver: SigningAccount,
     ) -> None:
-        with pytest.raises(LogicError, match=NOT_OPTED_IN):
+        with pytest.raises(LogicError, match=err.NOT_OPTED_IN):
             transfer(
                 smart_asa_client,
                 smart_asa_id,
@@ -707,7 +705,7 @@ class TestRegularTransfer:
         account_with_supply: SigningAccount,
         eve: SigningAccount,
     ) -> None:
-        with pytest.raises(LogicError, match=NOT_OPTED_IN):
+        with pytest.raises(LogicError, match=err.NOT_OPTED_IN):
             transfer(
                 smart_asa_client,
                 smart_asa_id,
@@ -716,10 +714,6 @@ class TestRegularTransfer:
                 asset_receiver=eve.address,
                 asset_amount=1,
             )
-
-    @pytest.mark.skip(reason=UNREACHABLE)
-    def test_fail_invalid_current_ctrl_asa(self) -> None:
-        pass
 
     def test_fail_global_frozen(
         self,

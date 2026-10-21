@@ -65,7 +65,6 @@ class SmartAsa(
 
         # LOCAL STATE
         # Smart ASA Fields
-        self.account_smart_asa_id = LocalState(UInt64)
         self.account_frozen = LocalState(bool)
 
     def _circulating_supply(self, ctrl_asset: Asset) -> UInt64:
@@ -74,6 +73,9 @@ class SmartAsa(
     def _assert_common_preconditions(self, asset: Asset) -> None:
         assert self.smart_asa_id, err.MISSING_CTRL_ASA
         assert self.smart_asa_id == asset.id, err.INVALID_CTRL_ASA
+
+    def _assert_opted_in(self, account: Account) -> None:
+        assert account.is_opted_in(Global.current_application_id), err.NOT_OPTED_IN
 
     def _assert_minting_preconditions(
         self, *, asset_receiver: Account, asset_amount: UInt64
@@ -86,10 +88,7 @@ class SmartAsa(
             asset_amount + self._circulating_supply(Asset(self.smart_asa_id))
             <= self.total
         ), err.OVER_MINT
-        # In the case of Controlled ASA destroyed and re-created, the Smart ASA ID in Local State could be outdated.
-        assert (
-            self.account_smart_asa_id[asset_receiver] == self.smart_asa_id
-        ), err.INVALID_CTRL_ASA
+        self._assert_opted_in(asset_receiver)
         assert not self.global_frozen, err.GLOBAL_FROZEN
         self._assert_reserve_not_frozen()
         assert not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN
@@ -105,18 +104,13 @@ class SmartAsa(
     def _assert_reserve_not_frozen(self) -> None:
         # The Reserve obeys account freezes, even if it is also the Clawback. Fail-closed:
         # a Reserve without App Local State can't mint nor burn.
-        # In case of Controlled ASA destroyed and re-created the Smart ASA ID in Local State could be outdated.
-        assert (
-            self.account_smart_asa_id[self.reserve_addr] == self.smart_asa_id
-        ), err.INVALID_CTRL_ASA
+        self._assert_opted_in(self.reserve_addr)
         assert not self.account_frozen[self.reserve_addr], err.RESERVE_FROZEN
 
     def _assert_clawback_preconditions(self, *, asset_receiver: Account) -> None:
         # As for native ASA, the clawed back holder needs no App Local State (e.g. after
         # a ClearState). The receiver does, so clawed back units always have a frozen flag.
-        assert (
-            self.account_smart_asa_id[asset_receiver] == self.smart_asa_id
-        ), err.INVALID_CTRL_ASA
+        self._assert_opted_in(asset_receiver)
 
     def _assert_regular_transfer_preconditions(
         self, *, asset_sender: Account, asset_receiver: Account
@@ -130,13 +124,8 @@ class SmartAsa(
         self, *, asset_sender: Account, asset_receiver: Account
     ) -> None:
         # Holder-to-holder policy, shared by regular transfers and close-outs to an account
-        # In the case of Controlled ASA destroyed and re-created, the Smart ASA ID in Local State could be outdated.
-        assert (
-            self.account_smart_asa_id[asset_sender] == self.smart_asa_id
-        ), err.INVALID_CTRL_ASA
-        assert (
-            self.account_smart_asa_id[asset_receiver] == self.smart_asa_id
-        ), err.INVALID_CTRL_ASA
+        self._assert_opted_in(asset_sender)
+        self._assert_opted_in(asset_receiver)
         assert not self.global_frozen, err.GLOBAL_FROZEN
         assert not self.account_frozen[asset_sender], err.SENDER_FROZEN
         assert not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN
@@ -144,9 +133,7 @@ class SmartAsa(
     def _assert_close_out_preconditions(self, close_asset: Asset) -> None:
         asa_close_out_relative_idx = Txn.group_index + 1
         assert Txn.on_completion == OnCompleteAction.CloseOut, err.WRONG_ON_COMPLETE
-        assert (
-            self.account_smart_asa_id[Txn.sender] == close_asset.id
-        ), err.INVALID_CTRL_ASA
+        self._assert_common_preconditions(close_asset)
         assert (
             Global.group_size > asa_close_out_relative_idx
         ), err.INVALID_CLOSE_OUT_GROUP_SIZE
@@ -161,7 +148,6 @@ class SmartAsa(
         assert (
             asa_close_out_txn.asset_close_to == Global.current_application_address
         ), err.CLOSE_OUT_WRONG_CLOSE_TO
-        assert close_asset.id == self.smart_asa_id, err.INVALID_CTRL_ASA
 
     def _assert_valid_metadata_hash(self, metadata_hash: Bytes) -> None:
         # Non-normative: stricter than ARC-20, which allows any `byte[]` length
@@ -299,7 +285,6 @@ class SmartAsa(
         ), err.MISSING_CTRL_ASA  # Pedant: ctrl_asa_opt_in is checked properly
 
         # Local State Init
-        self.account_smart_asa_id[Txn.sender] = self.smart_asa_id
         self.account_frozen[Txn.sender] = False
 
         # Effects
@@ -443,9 +428,7 @@ class SmartAsa(
         """
         # Preconditions
         self._assert_common_preconditions(freeze_asset)
-        assert (
-            self.account_smart_asa_id[freeze_account] == self.smart_asa_id
-        ), err.INVALID_CTRL_ASA
+        self._assert_opted_in(freeze_account)
         assert Txn.sender == self.freeze_addr, err.UNAUTHORIZED_FREEZE
 
         # Effects
