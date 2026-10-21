@@ -27,6 +27,19 @@ ASA are initialized the corresponding Smart ASA fields on creation.
 The fields on the underlying Controlled ASA are _immutable_, while the fields of
 the Smart ASA can be updated by the Smart ASA Manager after creation.
 
+ARC-20 requires a Smart ASA to specify the ID of its controlling Application. The
+basic Smart ASA does not publish it by itself: the Controlled ASA is configured only
+by the Smart ASA Application, so no [ARC-69](https://dev.algorand.co/arc-standards/arc-0069/)
+metadata can be attached later. To make the Smart ASA discoverable, either:
+
+- Set the `url` and `metadata_hash` on creation to [ARC-3](https://dev.algorand.co/arc-standards/arc-0003/)
+  metadata including the Application ID under `properties.arc-20.application-id`
+  (the Application ID is known before calling `asset_create`); or
+- Use the [Smart ASA with ASA Metadata Registry integration](#smart-asa-with-asa-metadata-registry-integration),
+  which publishes it in the ASA Metadata Registry.
+
+The basic Smart ASA deployment script does neither.
+
 ## Smart ASA with ASA Metadata Registry Integration
 
 The Smart ASA implementation integrates with the ASA Metadata Registry.
