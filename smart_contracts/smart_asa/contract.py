@@ -574,12 +574,15 @@ class SmartAsa(
             freeze_account: Account to check
 
         Returns:
-            Smart ASA account frozen status
+            Smart ASA account frozen status (True if the account is not opted in)
         """
         # Preconditions
         self._assert_common_preconditions(freeze_asset)
 
         # Effects
+        # A missing frozen flag counts as frozen (ARC-20 Security Considerations)
+        if not freeze_account.is_opted_in(Global.current_application_id):
+            return True
         return self.account_frozen[freeze_account]
 
     @arc4.abimethod(readonly=True, resource_encoding="index")
