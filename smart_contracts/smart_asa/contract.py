@@ -91,22 +91,25 @@ class SmartAsa(
             self.account_smart_asa_id[asset_receiver] == self.smart_asa_id
         ), err.INVALID_CTRL_ASA
         assert not self.global_frozen, err.GLOBAL_FROZEN
-        if self.reserve_addr != self.clawback_addr:
-            assert not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN
+        self._assert_reserve_not_frozen()
+        assert not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN
 
     def _assert_burning_preconditions(self, *, asset_sender: Account) -> None:
         # Burn permission restricted to Reserve.
         assert Txn.sender == self.reserve_addr, err.UNAUTHORIZED_RESERVE
         assert not self.global_frozen, err.GLOBAL_FROZEN
-        # A Reserve that is also Clawback can burn from any holder, opted-in or not.
-        if self.reserve_addr != self.clawback_addr:
-            # In case of Controlled ASA destroyed and re-created the Smart ASA ID in Local State could be outdated.
-            assert (
-                self.account_smart_asa_id[asset_sender] == self.smart_asa_id
-            ), err.INVALID_CTRL_ASA
-            assert not self.account_frozen[asset_sender], err.SENDER_FROZEN
-            # Forbidden clawback through burning (burned amount not from Reserve).
-            assert asset_sender == self.reserve_addr, err.CLAWBACK_BURN
+        # Forbidden clawback through burning (burned amount not from Reserve).
+        assert asset_sender == self.reserve_addr, err.CLAWBACK_BURN
+        self._assert_reserve_not_frozen()
+
+    def _assert_reserve_not_frozen(self) -> None:
+        # The Reserve obeys account freezes, even if it is also the Clawback. Fail-closed:
+        # a Reserve without App Local State can't mint nor burn.
+        # In case of Controlled ASA destroyed and re-created the Smart ASA ID in Local State could be outdated.
+        assert (
+            self.account_smart_asa_id[self.reserve_addr] == self.smart_asa_id
+        ), err.INVALID_CTRL_ASA
+        assert not self.account_frozen[self.reserve_addr], err.RESERVE_FROZEN
 
     def _assert_clawback_preconditions(self, *, asset_receiver: Account) -> None:
         # As for native ASA, the clawed back holder needs no App Local State (e.g. after
@@ -346,6 +349,9 @@ class SmartAsa(
         if reserve_addr.native != self.reserve_addr:
             assert self.reserve_addr != Global.zero_address, err.DISABLED_RESERVE
         if freeze_addr.native != self.freeze_addr:
+            assert self.freeze_addr != Global.zero_address, err.DISABLED_FREEZE
+        if default_frozen != self.default_frozen:
+            # A disabled Freeze leaves the freeze settings as they are
             assert self.freeze_addr != Global.zero_address, err.DISABLED_FREEZE
         if clawback_addr.native != self.clawback_addr:
             assert self.clawback_addr != Global.zero_address, err.DISABLED_CLAWBACK

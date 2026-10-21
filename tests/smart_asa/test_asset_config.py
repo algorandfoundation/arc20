@@ -1,7 +1,8 @@
 import re
+from collections.abc import Callable
 
 import pytest
-from algokit_utils import CommonAppCallParams, LogicError, SigningAccount
+from algokit_utils import AlgoAmount, CommonAppCallParams, LogicError, SigningAccount
 from algosdk.constants import ZERO_ADDRESS
 
 import smart_contracts.errors as err
@@ -10,7 +11,7 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaClient,
 )
 from tests.conftest import SmartASAConfig
-from tests.support import BOTH_DEFAULT_FROZEN
+from tests.support import BOTH_DEFAULT_FROZEN, balance, transfer
 
 NEW_ASA_CONFIG = SmartASAConfig(
     total=42,
@@ -171,3 +172,78 @@ def test_fail_invalid_metadata_hash_length(
             AssetConfigArgs(config_asset=smart_asa_id, **asa_config.dictify()),
             params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
         )
+
+
+def test_fail_default_frozen_after_freeze_disabled(
+    smart_asa_client: SmartAsaClient,
+    smart_asa_id: int,
+    manager: SigningAccount,
+    asa_config: SmartASAConfig,
+) -> None:
+    asa_config.freeze_addr = ZERO_ADDRESS
+    smart_asa_client.send.asset_config(
+        AssetConfigArgs(config_asset=smart_asa_id, **asa_config.dictify()),
+        params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
+    )
+
+    # A disabled Freeze leaves the freeze settings as they are
+    asa_config.default_frozen = True
+    with pytest.raises(LogicError, match=err.DISABLED_FREEZE):
+        smart_asa_client.send.asset_config(
+            AssetConfigArgs(config_asset=smart_asa_id, **asa_config.dictify()),
+            params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
+        )
+
+
+def test_pass_disable_freeze_and_set_default_frozen(
+    min_fee_2x: AlgoAmount,
+    smart_asa_client: SmartAsaClient,
+    smart_asa_id: int,
+    manager: SigningAccount,
+    reserve: SigningAccount,
+    clawback: SigningAccount,
+    asa_config: SmartASAConfig,
+    opted_in_account_factory: Callable[[], SigningAccount],
+) -> None:
+    # Soulbound: holdings frozen forever, only the Clawback can move them
+    asa_config.freeze_addr = ZERO_ADDRESS
+    asa_config.default_frozen = True
+    smart_asa_client.send.asset_config(
+        AssetConfigArgs(config_asset=smart_asa_id, **asa_config.dictify()),
+        params=CommonAppCallParams(sender=manager.address, signer=manager.signer),
+    )
+    state = smart_asa_client.state.global_state
+    assert state.freeze_addr == ZERO_ADDRESS
+    assert state.default_frozen
+
+    holder = opted_in_account_factory()  # Opts in frozen, forever
+    with pytest.raises(LogicError, match=err.RECEIVER_FROZEN):
+        transfer(
+            smart_asa_client,
+            smart_asa_id,
+            signer=reserve,
+            asset_sender=smart_asa_client.app_address,
+            asset_receiver=holder.address,
+            asset_amount=1,
+        )
+
+    # Issuance: the Reserve mints to itself, then the Clawback delivers
+    transfer(
+        smart_asa_client,
+        smart_asa_id,
+        signer=reserve,
+        asset_sender=smart_asa_client.app_address,
+        asset_receiver=reserve.address,
+        asset_amount=1,
+        fee=min_fee_2x,
+    )
+    transfer(
+        smart_asa_client,
+        smart_asa_id,
+        signer=clawback,
+        asset_sender=reserve.address,
+        asset_receiver=holder.address,
+        asset_amount=1,
+        fee=min_fee_2x,
+    )
+    assert balance(smart_asa_client, smart_asa_id, holder) == 1

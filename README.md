@@ -79,30 +79,34 @@ Both Smart ASA variants share the same roles and transfer rules.
 
 ### Roles
 
-| Role     | Can                                                                                                                                                                                                                      | If set to `ZeroAddress`                        |
-|:---------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------|
-| Creator  | Create the Smart ASA (`asset_create`), once                                                                                                                                                                              | –                                              |
-| Manager  | Configure (`asset_config`) and destroy (`asset_destroy`, which also deletes the Application and sends its ALGO to the Manager) the Smart ASA, and interact with the ASA Metadata Registry (`asa_metadata_registry_init`) | Configuration is locked, destroy is impossible |
-| Reserve  | Mint and burn                                                                                                                                                                                                            | Minting and burning are disabled for good      |
-| Freeze   | Freeze the whole Smart ASA (`asset_freeze`) or an account (`account_freeze`)                                                                                                                                             | The current freeze state is permanent          |
-| Clawback | Move units between holders, regardless of freezes                                                                                                                                                                        | Clawback is disabled for good                  |
+| Role     | Can                                                                                                                                                                                                                      | If set to `ZeroAddress`                                   |
+|:---------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:----------------------------------------------------------|
+| Creator  | Create the Smart ASA (`asset_create`), once                                                                                                                                                                              | –                                                         |
+| Manager  | Configure (`asset_config`) and destroy (`asset_destroy`, which also deletes the Application and sends its ALGO to the Manager) the Smart ASA, and interact with the ASA Metadata Registry (`asa_metadata_registry_init`) | Configuration is locked, destroy is impossible            |
+| Reserve  | Mint and burn, if opted in and not frozen                                                                                                                                                                                | Minting and burning are disabled for good                 |
+| Freeze   | Freeze the whole Smart ASA (`asset_freeze`) or an account (`account_freeze`)                                                                                                                                             | The freeze state, `default_frozen` included, is permanent |
+| Clawback | Move units between holders, regardless of freezes                                                                                                                                                                        | Clawback is disabled for good                             |
 
 The Smart ASA Application holds the units not minted yet and all the Controlled ASA
 roles. A role set to the Application address can't be used either (the Application
 can't sign transactions), but, unlike `ZeroAddress`, the Manager can reassign it.
 
+The Manager can update any Smart ASA field (e.g., `decimals`), except that `total`
+can't go below the circulating supply, disabled roles stay disabled, and `default_frozen`
+is locked once Freeze is disabled. The Manager can also assign itself any role, use
+it and restore the roles within one atomic group: role separation is only as strong
+as the Manager.
+
 ### Transfer paths
 
 `asset_transfer` takes the first matching path:
 
-| Path     | When                        | Signer         | Opted-in accounts | Freeze checks               | Other checks                                          |
-|:---------|:----------------------------|:---------------|:------------------|:----------------------------|:------------------------------------------------------|
-| Mint     | `asset_sender` is the App   | Reserve        | Receiver          | Smart ASA; receiver ¹       | Receiver is not the App; circulating supply ≤ `total` |
-| Burn     | `asset_receiver` is the App | Reserve        | Sender ¹          | Smart ASA; sender ¹         | Sender is the Reserve ¹                               |
-| Clawback | Signer is the Clawback      | Clawback       | Receiver          | None                        | –                                                     |
-| Regular  | Otherwise                   | `asset_sender` | Sender, receiver  | Smart ASA, sender, receiver | –                                                     |
-
-¹ Skipped if the Reserve is also the Clawback.
+| Path     | When                        | Signer         | Opted-in accounts | Freeze checks                | Other checks                                          |
+|:---------|:----------------------------|:---------------|:------------------|:-----------------------------|:------------------------------------------------------|
+| Mint     | `asset_sender` is the App   | Reserve        | Reserve, receiver | Smart ASA, Reserve, receiver | Receiver is not the App; circulating supply ≤ `total` |
+| Burn     | `asset_receiver` is the App | Reserve        | Reserve           | Smart ASA, Reserve           | Sender is the Reserve                                 |
+| Clawback | Signer is the Clawback      | Clawback       | Receiver          | None                         | –                                                     |
+| Regular  | Otherwise                   | `asset_sender` | Sender, receiver  | Smart ASA, sender, receiver  | –                                                     |
 
 "Opted-in" refers to the Smart ASA Application. Accounts must also be opted in to
 the Controlled ASA, as required by the protocol.
@@ -128,24 +132,60 @@ can do the same for any holder, by first clawing the units back to itself.
 Holders can't burn part of their balance: `asset_transfer` to the Smart ASA Application
 is reserved to the Reserve.
 
-### Role combinations
+### Freeze model
 
-- A Reserve that is also the Clawback can mint into frozen accounts and burn from any
-  holder in a single transaction. Separate Reserve and Clawback accounts can do the
-  same in two steps.
-- A holder that is also the Clawback ignores freezes on its own units.
-- The Manager can assign itself any role, use it and restore the roles within one
-  atomic group: role separation is only as strong as the Manager.
+Freeze can stop units, never move them: at worst it affects availability, never balances.
 
-### Freezing
+| Movement                                  | Account freeze                                   | Global freeze |
+|:------------------------------------------|:-------------------------------------------------|:--------------|
+| Regular transfer, close-out to an account | Blocked if the sender or the receiver is frozen  | Blocked       |
+| Mint                                      | Blocked if the Reserve or the receiver is frozen | Blocked       |
+| Burn                                      | Blocked if the Reserve is frozen                 | Blocked       |
+| Clawback                                  | Never blocked                                    | Never blocked |
+| Surrender to the Smart ASA Application    | Never blocked                                    | Never blocked |
 
-- Accounts opt in frozen if the Smart ASA is `default_frozen`, or if they already hold
-  units (e.g. after a `ClearState`), so a `ClearState` can't unfreeze units.
-- As for native ASA, a freeze applies to the current holding: once an account holds
-  no units, it can clear its App Local State and opt in again with the default freeze
-  state.
-- An account without App Local State counts as frozen (`get_account_is_frozen` returns
-  `True`). The Clawback can still move its units.
+- **The Reserve obeys Freeze.** Freeze is the circuit breaker of issuance: a halt means
+  no new units, and freezing the Reserve stops a compromised issuance key without halting
+  the market (reliably in a whitelist model). A Reserve without App Local State can't mint
+  nor burn.
+- **The Clawback ignores Freeze.** Seizures and recoveries are what freezes prepare
+  for, often during a halt. Only the Manager can stop the Clawback, by replacing it.
+- **Roles held by the same account compose.** Each action follows its own role's rules:
+  a Reserve that is also the Clawback mints and burns as Reserve, and claws back as Clawback.
+- **Surrender is always possible.** The protocol lets holders return their whole balance
+  to the creator: units can only flow back to the issuer.
+- **A disabled role leaves its state as it is.** With Freeze set to `ZeroAddress`,
+  freezes can't change anymore: e.g., a global freeze becomes permanent.
+
+Multi-role operations run as one atomic group, so nobody can act in between, e.g.:
+
+- Planned issuance during a halt: `[Freeze: unfreeze, Reserve: mint, Freeze: freeze]`;
+- Forced redemption, by a Reserve that is also the Clawback: `[Clawback: holder → itself, Reserve: burn]`.
+
+### Freeze profiles
+
+`default_frozen` selects how account freezes work:
+
+- **Blacklist** (`False`): accounts opt in unfrozen. As for native ASA, a freeze applies
+  to the current holding: an account holding no units can clear its App Local State
+  and opt in unfrozen again.
+- **Whitelist** (`True`): accounts opt in frozen until Freeze approves them, and opt
+  in frozen again after a `ClearState`, so freezes stick. Recommended for regulated
+  assets.
+
+In both profiles, accounts holding units opt in frozen (e.g., after a `ClearState`),
+and an account without App Local State counts as frozen (`get_account_is_frozen` returns
+`True`). The Clawback can still move its units.
+
+### Scenarios
+
+| Scenario                 | Setup                                                               | How it works                                                                                                                                                                                                |
+|:-------------------------|:--------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Tokenized security       | Whitelist; separate Reserve, Freeze and Clawback                    | Freeze approves the Reserve and, after KYC, each investor. The Reserve issues to approved investors only. A trading halt stops trading and issuance; corporate actions run in atomic groups during the halt |
+| Court order, sanctions   | Whitelist                                                           | Freeze freezes the named account, also across a `ClearState`. The Clawback seizes the units into custody, even during a halt. The holder can only surrender units to the issuer                             |
+| Compromised issuance key | Any                                                                 | Freeze freezes the Reserve (in a block list, an empty Reserve can reset its freeze: halt the Smart ASA instead), then the Manager replaces the Reserve                                                      |
+| Permissionless token     | Blacklist; Freeze and Clawback disabled while nothing is frozen     | Holdings can never be frozen nor seized: `default_frozen` stays `False`                                                                                                                                     |
+| Soulbound token          | `default_frozen` set and Freeze disabled in the same `asset_config` | Holdings stay frozen forever. The Reserve (unfrozen before Freeze is disabled) mints to itself and the Clawback delivers; holders can only surrender units                                                  |
 
 ### Wallets
 

@@ -17,6 +17,7 @@ from algosdk.transaction import Transaction
 
 from smart_contracts.artifacts.arc89_smart_asa.arc89_smart_asa_client import (
     Arc89SmartAsaClient,
+    Arc89SmartAsaComposer,
 )
 from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     AccountFreezeArgs,
@@ -31,6 +32,7 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
 
 # The generated clients share the ABI argument layouts, so the helpers accept both
 AnySmartAsaClient = SmartAsaClient | Arc89SmartAsaClient
+AnySmartAsaComposer = SmartAsaComposer | Arc89SmartAsaComposer
 
 INITIAL_FUNDS: Final[AlgoAmount] = AlgoAmount.from_algo(100)
 
@@ -85,8 +87,8 @@ def clear_state(client: AnySmartAsaClient, account: SigningAccount) -> None:
     )
 
 
-def transfer(
-    client: AnySmartAsaClient,
+def add_transfer(
+    composer: AnySmartAsaComposer,
     asset_id: int,
     *,
     signer: SigningAccount,
@@ -94,8 +96,9 @@ def transfer(
     asset_receiver: str,
     asset_amount: int,
     fee: AlgoAmount | None = None,
-) -> None:
-    client.send.asset_transfer(
+) -> AnySmartAsaComposer:
+    """Appends an `asset_transfer` call to a group (e.g., two roles acting atomically)."""
+    return composer.asset_transfer(
         AssetTransferArgs(
             xfer_asset=asset_id,
             asset_amount=asset_amount,
@@ -106,6 +109,57 @@ def transfer(
             static_fee=fee, signer=signer.signer, sender=signer.address
         ),
     )
+
+
+def transfer(
+    client: AnySmartAsaClient,
+    asset_id: int,
+    *,
+    signer: SigningAccount,
+    asset_sender: str,
+    asset_receiver: str,
+    asset_amount: int,
+    fee: AlgoAmount | None = None,
+) -> None:
+    add_transfer(
+        client.new_group(),
+        asset_id,
+        signer=signer,
+        asset_sender=asset_sender,
+        asset_receiver=asset_receiver,
+        asset_amount=asset_amount,
+        fee=fee,
+    ).send()
+
+
+def claw_back_and_burn(
+    client: AnySmartAsaClient,
+    asset_id: int,
+    *,
+    signer: SigningAccount,
+    holder: str,
+    asset_amount: int,
+    fee: AlgoAmount | None = None,
+) -> None:
+    """Forced redemption by a Reserve that is also Clawback: two calls, one group."""
+    group = add_transfer(
+        client.new_group(),
+        asset_id,
+        signer=signer,
+        asset_sender=holder,
+        asset_receiver=signer.address,
+        asset_amount=asset_amount,
+        fee=fee,
+    )
+    add_transfer(
+        group,
+        asset_id,
+        signer=signer,
+        asset_sender=signer.address,
+        asset_receiver=client.app_address,
+        asset_amount=asset_amount,
+        fee=fee,
+    ).send()
 
 
 def global_freeze(
