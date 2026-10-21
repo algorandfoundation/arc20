@@ -37,7 +37,6 @@ INITIAL_FUNDS: Final[AlgoAmount] = AlgoAmount.from_algo(100)
 # Expected failures that carry no contract error message
 NOT_OPTED_IN: Final[str] = "cannot fetch key"  # Local state of a non opted-in account
 ASSERT_FAILED: Final[str] = "assert failed"  # ARC-4 router checks and raw algod errors
-GTXN_OUT_OF_RANGE: Final[str] = r"len\(group\) is"  # Group index past the last txn
 APPROVAL_REJECTED: Final[str] = "rejected by ApprovalProgram"
 UNREACHABLE: Final[str] = (
     "Unreachable: asset_create is one-shot and asset_destroy deletes the app"
