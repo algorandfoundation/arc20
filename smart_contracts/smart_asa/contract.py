@@ -171,6 +171,12 @@ class SmartAsa(
         assert not self.account_frozen[Txn.sender], err.SENDER_FROZEN
         assert not self.account_frozen[close_to], err.CLOSE_TO_FROZEN
 
+    def _assert_valid_metadata_hash(self, metadata_hash: Bytes) -> None:
+        # Non-normative: stricter than ARC-20, which allows any `byte[]` length
+        assert (
+            metadata_hash.length == cfg.METADATA_HASH_LENGTH
+        ), err.INVALID_METADATA_HASH_LENGTH
+
     def _configure_smart_asa(
         self,
         *,
@@ -236,9 +242,7 @@ class SmartAsa(
         # Preconditions
         assert Txn.sender == Global.creator_address, err.UNAUTHORIZED
         assert not self.smart_asa_id, err.EXISTING_CTRL_ASA
-        assert (
-            metadata_hash.length == cfg.METADATA_HASH_LENGTH
-        ), err.INVALID_METADATA_HASH_LENGTH  # Non-normative
+        self._assert_valid_metadata_hash(metadata_hash)
 
         # Create the underlying Controlled ASA
         self.smart_asa_id = inner_asset_create(
@@ -349,6 +353,7 @@ class SmartAsa(
         # Preconditions
         self._assert_common_preconditions(config_asset)
         assert Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER
+        self._assert_valid_metadata_hash(metadata_hash)
         if reserve_addr.native != self.reserve_addr:
             assert self.reserve_addr != Global.zero_address, err.DISABLED_RESERVE
         if freeze_addr.native != self.freeze_addr:
