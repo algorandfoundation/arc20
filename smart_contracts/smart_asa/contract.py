@@ -288,6 +288,9 @@ class SmartAsa(
         self._assert_common_preconditions(asset)
         assert ctrl_asa_opt_in.xfer_asset.id == self.smart_asa_id, err.OPT_IN_WRONG_ASA
         assert ctrl_asa_opt_in.sender == Txn.sender, err.OPT_IN_WRONG_SENDER
+        assert (
+            ctrl_asa_opt_in.asset_sender == Global.zero_address
+        ), err.OPT_IN_WRONG_ASSET_SENDER  # Pedant: only the Smart ASA App can clawback
         assert ctrl_asa_opt_in.asset_receiver == Txn.sender, err.OPT_IN_WRONG_RECEIVER
         assert (
             ctrl_asa_opt_in.asset_amount == 0
