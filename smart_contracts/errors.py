@@ -15,9 +15,6 @@ WRONG_LOCAL_BYTES: LiteralString = "wrongLocalBytes"
 # Wrong Local UInts allocation
 WRONG_LOCAL_UINTS: LiteralString = "wrongLocalUints"
 
-# Wrong OnComplete action
-WRONG_ON_COMPLETE: LiteralString = "wrongOnComplete"
-
 # ── Auth ──────────────────────────────────────────────────────────────────────
 # Unauthorized, it must be the Application creator
 UNAUTHORIZED_CREATOR: LiteralString = "unauthorizedCreator"
@@ -44,9 +41,6 @@ EXISTING_CTRL_ASA: LiteralString = "ctrlAsaExist"
 # The asset is not the Controlled ASA
 INVALID_CTRL_ASA: LiteralString = "ctrlAsaInvalid"
 
-# The account is not opted in to the Smart ASA Application
-NOT_OPTED_IN: LiteralString = "accountNotOptedIn"
-
 # ── Roles ─────────────────────────────────────────────────────────────────────
 # The Reserve is disabled (ZeroAddress) for good
 DISABLED_RESERVE: LiteralString = "reserveDisabled"
@@ -56,6 +50,11 @@ DISABLED_FREEZE: LiteralString = "freezeDisabled"
 
 # The Clawback is disabled (ZeroAddress) for good
 DISABLED_CLAWBACK: LiteralString = "clawbackDisabled"
+
+# ── Account freeze boxes ──────────────────────────────────────────────────────
+# A new account freeze box needs a payment of at least its MBR to the App, just
+# before the call
+BOX_MBR_UNFUNDED: LiteralString = "boxMbrUnfunded"
 
 # ── Freeze ────────────────────────────────────────────────────────────────────
 # The Smart ASA is globally frozen
@@ -69,41 +68,6 @@ RECEIVER_FROZEN: LiteralString = "receiverFrozen"
 
 # The Reserve account is frozen
 RESERVE_FROZEN: LiteralString = "reserveFrozen"
-
-# ── Opt-in ────────────────────────────────────────────────────────────────────
-# The Controlled ASA opt-in is for another asset
-OPT_IN_WRONG_ASA: LiteralString = "optInWrongAsa"
-
-# The Controlled ASA opt-in sender is not the caller
-OPT_IN_WRONG_SENDER: LiteralString = "optInWrongSender"
-
-# The Controlled ASA opt-in is a clawback
-OPT_IN_WRONG_ASSET_SENDER: LiteralString = "optInWrongAssetSender"
-
-# The Controlled ASA opt-in receiver is not the caller
-OPT_IN_WRONG_RECEIVER: LiteralString = "optInWrongReceiver"
-
-# The Controlled ASA opt-in amount is not 0
-OPT_IN_WRONG_AMOUNT: LiteralString = "optInWrongAmount"
-
-# The Controlled ASA opt-in closes out
-OPT_IN_WRONG_CLOSE_TO: LiteralString = "optInWrongCloseTo"
-
-# ── Close-out ─────────────────────────────────────────────────────────────────
-# The Controlled ASA close-out is missing from the group
-INVALID_CLOSE_OUT_GROUP_SIZE: LiteralString = "closeOutMissing"
-
-# The Controlled ASA close-out is for another asset
-CLOSE_OUT_WRONG_ASA: LiteralString = "closeOutWrongAsa"
-
-# The Controlled ASA close-out sender is not the caller
-CLOSE_OUT_WRONG_SENDER: LiteralString = "closeOutWrongSender"
-
-# The Controlled ASA close-out amount is not 0
-CLOSE_OUT_WRONG_AMOUNT: LiteralString = "closeOutWrongAmount"
-
-# The Controlled ASA close-out is not to the Smart ASA Application
-CLOSE_OUT_WRONG_CLOSE_TO: LiteralString = "closeOutWrongCloseTo"
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 # Invalid total, it must not be lower than the circulating supply
@@ -121,6 +85,13 @@ OVER_MINT: LiteralString = "overMint"
 
 # Burning units of another holder is forbidden
 CLAWBACK_BURN: LiteralString = "clawbackBurn"
+
+# ── Destroy ───────────────────────────────────────────────────────────────────
+# Units are still in circulation: return them to the Smart ASA Application first
+UNITS_IN_CIRCULATION: LiteralString = "unitsInCirculation"
+
+# Account freeze boxes are left: reset the accounts to the default freeze state first
+FREEZE_BOXES_LEFT: LiteralString = "freezeBoxesLeft"
 
 # ── ASA Metadata Registry ─────────────────────────────────────────────────────
 # The ASA Metadata Registry App ID is not set

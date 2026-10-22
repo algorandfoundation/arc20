@@ -99,6 +99,14 @@ def inner_asset_destroy(*, destroy_asset: Asset) -> None:
 
 
 @subroutine
+def inner_payment(*, receiver: Account, amount: UInt64) -> None:
+    itxn.Payment(
+        receiver=receiver,
+        amount=amount,
+    ).submit()
+
+
+@subroutine
 def inner_close_account(*, close_remainder_to: Account) -> None:
     itxn.Payment(
         receiver=close_remainder_to,

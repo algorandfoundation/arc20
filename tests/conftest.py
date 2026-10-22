@@ -37,6 +37,11 @@ def algorand() -> AlgorandClient:
 
 
 @pytest.fixture(scope="session")
+def min_fee(algorand: AlgorandClient) -> AlgoAmount:
+    return AlgoAmount.from_micro_algo(algorand.client.algod.suggested_params().min_fee)
+
+
+@pytest.fixture(scope="session")
 def min_fee_2x(algorand: AlgorandClient) -> AlgoAmount:
     sp = algorand.client.algod.suggested_params()
     sp.fee = sp.min_fee * 2
