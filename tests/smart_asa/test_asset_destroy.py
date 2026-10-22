@@ -7,8 +7,7 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     AssetDestroyArgs,
     SmartAsaClient,
 )
-from tests.conftest import SmartASAConfig
-from tests.support import claw_back_and_burn, clear_state
+from tests.support import account_freeze
 
 
 def _micro_algo(client: SmartAsaClient, address: str) -> int:
@@ -44,38 +43,6 @@ def test_pass_destroy(
         _micro_algo(smart_asa_client, manager.address)
         == manager_balance + app_balance - min_fee_3x.micro_algo
     )
-
-
-def test_pass_destroy_after_recovering_from_holder_without_local_state(
-    min_fee_2x: AlgoAmount,
-    min_fee_3x: AlgoAmount,
-    asa_config: SmartASAConfig,
-    smart_asa_client: SmartAsaClient,
-    smart_asa_id: int,
-    manager: SigningAccount,
-    reserve_and_clawback: SigningAccount,
-    account_with_supply: SigningAccount,
-) -> None:
-    # A holder that cleared its App Local State can't block the destroy
-    clear_state(smart_asa_client, account_with_supply)
-    claw_back_and_burn(
-        smart_asa_client,
-        smart_asa_id,
-        signer=reserve_and_clawback,
-        holder=account_with_supply.address,
-        asset_amount=asa_config.total,
-        fee=min_fee_2x,
-    )
-    smart_asa_client.send.delete.asset_destroy(
-        AssetDestroyArgs(destroy_asset=smart_asa_id),
-        params=CommonAppCallParams(
-            static_fee=min_fee_3x,
-            signer=manager.signer,
-            sender=manager.address,
-        ),
-    )
-    with pytest.raises(AlgodHTTPError, match="asset does not exist"):
-        smart_asa_client.algorand.asset.get_by_id(smart_asa_id)
 
 
 def test_fail_missing_ctrl_asa(
@@ -136,7 +103,7 @@ def test_fail_still_in_circulation(
     manager: SigningAccount,
     account_with_supply: SigningAccount,  # To have circulating supply
 ) -> None:
-    with pytest.raises(LogicError, match="creator is holding only"):
+    with pytest.raises(LogicError, match=err.UNITS_IN_CIRCULATION):
         smart_asa_client.send.delete.asset_destroy(
             AssetDestroyArgs(destroy_asset=smart_asa_id),
             params=CommonAppCallParams(
@@ -145,3 +112,29 @@ def test_fail_still_in_circulation(
                 sender=manager.address,
             ),
         )
+
+
+def test_fail_freeze_boxes_left(
+    min_fee_3x: AlgoAmount,
+    smart_asa_client: SmartAsaClient,
+    smart_asa_id: int,
+    manager: SigningAccount,
+    freeze: SigningAccount,
+    receiver: SigningAccount,
+) -> None:
+    def destroy() -> None:
+        smart_asa_client.send.delete.asset_destroy(
+            AssetDestroyArgs(destroy_asset=smart_asa_id),
+            params=CommonAppCallParams(
+                static_fee=min_fee_3x, signer=manager.signer, sender=manager.address
+            ),
+        )
+
+    # Deleting the App would orphan the box: Freeze resets the account first
+    account_freeze(smart_asa_client, smart_asa_id, freeze, receiver.address)
+    with pytest.raises(LogicError, match=err.FREEZE_BOXES_LEFT):
+        destroy()
+    account_freeze(
+        smart_asa_client, smart_asa_id, freeze, receiver.address, frozen=False
+    )
+    destroy()

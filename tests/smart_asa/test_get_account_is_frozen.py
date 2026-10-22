@@ -41,10 +41,19 @@ def test_fail_invalid_ctrl_asa(
         )
 
 
-def test_pass_not_opted_in_is_frozen(
-    smart_asa_client: SmartAsaClient, smart_asa_id: int, eve: SigningAccount
+@BOTH_DEFAULT_FROZEN
+def test_pass_default_for_any_account(
+    asa_config: SmartASAConfig,
+    smart_asa_client: SmartAsaClient,
+    smart_asa_id: int,
+    eve: SigningAccount,
 ) -> None:
-    # A missing frozen flag counts as frozen
-    assert smart_asa_client.send.get_account_is_frozen(
-        GetAccountIsFrozenArgs(freeze_asset=smart_asa_id, freeze_account=eve.address)
-    ).abi_return
+    # No box: the default freeze state, also for accounts not holding the asset
+    assert (
+        smart_asa_client.send.get_account_is_frozen(
+            GetAccountIsFrozenArgs(
+                freeze_asset=smart_asa_id, freeze_account=eve.address
+            )
+        ).abi_return
+        == asa_config.default_frozen
+    )

@@ -7,26 +7,24 @@ import pytest
 from algokit_utils import (
     AlgoAmount,
     AlgorandClient,
-    AppClientBareCallParams,
     AssetOptInParams,
-    AssetTransferParams,
     CommonAppCallParams,
+    PaymentParams,
     SigningAccount,
     TransactionComposer,
 )
-from algosdk.atomic_transaction_composer import TransactionWithSigner
+from algosdk.constants import MIN_TXN_FEE
 from algosdk.transaction import SignedTransaction, Transaction
 from algosdk.v2client.models import SimulateRequest, SimulateRequestTransactionGroup
 
+import smart_contracts.smart_asa.config as cfg
 from smart_contracts.artifacts.arc89_smart_asa.arc89_smart_asa_client import (
     Arc89SmartAsaClient,
     Arc89SmartAsaComposer,
 )
 from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     AccountFreezeArgs,
-    AssetCloseOutArgs,
     AssetFreezeArgs,
-    AssetOptInArgs,
     AssetTransferArgs,
     GetCirculatingSupplyArgs,
     SmartAsaClient,
@@ -88,24 +86,11 @@ def funded_account(algorand: AlgorandClient) -> SigningAccount:
 
 
 def opt_in(client: AnySmartAsaClient, asset_id: int, account: SigningAccount) -> None:
-    client.send.opt_in.asset_opt_in(
-        AssetOptInArgs(
-            asset=asset_id,
-            ctrl_asa_opt_in=TransactionWithSigner(
-                txn=client.algorand.create_transaction.asset_opt_in(
-                    AssetOptInParams(asset_id=asset_id, sender=account.address)
-                ),
-                signer=account.signer,
-            ),
-        ),
-        params=CommonAppCallParams(signer=account.signer, sender=account.address),
-    )
-
-
-def clear_state(client: AnySmartAsaClient, account: SigningAccount) -> None:
-    """Drops the account's App Local State; its Controlled ASA holding is kept."""
-    client.send.clear_state(
-        AppClientBareCallParams(signer=account.signer, sender=account.address)
+    """Holders only opt in to the Controlled ASA (no App opt-in)."""
+    client.algorand.send.asset_opt_in(
+        AssetOptInParams(
+            asset_id=asset_id, sender=account.address, signer=account.signer
+        )
     )
 
 
@@ -197,6 +182,25 @@ def global_freeze(
     )
 
 
+def box_deposit(
+    client: AnySmartAsaClient,
+    payer: SigningAccount,
+    *,
+    amount: int = cfg.FREEZE_EXCEPTION_BOX_MBR,
+    receiver: str | None = None,
+    note: bytes | None = None,
+) -> Transaction:
+    """The payment preceding an `account_freeze` that creates a box."""
+    return client.algorand.create_transaction.payment(
+        PaymentParams(
+            sender=payer.address,
+            receiver=receiver or client.app_address,
+            amount=AlgoAmount.from_micro_algo(amount),
+            note=note,
+        )
+    )
+
+
 def account_freeze(
     client: AnySmartAsaClient,
     asset_id: int,
@@ -205,12 +209,21 @@ def account_freeze(
     *,
     frozen: bool = True,
 ) -> None:
-    client.send.account_freeze(
+    """Freeze path: a deposit before a new box, an extra fee for the refund on reset."""
+    group = client.new_group()
+    reset = frozen == client.state.global_state.default_frozen
+    if not reset:
+        group.add_transaction(box_deposit(client, signer), signer=signer.signer)
+    group.account_freeze(
         AccountFreezeArgs(
             freeze_asset=asset_id, freeze_account=account, asset_frozen=frozen
         ),
-        params=CommonAppCallParams(signer=signer.signer, sender=signer.address),
-    )
+        params=CommonAppCallParams(
+            extra_fee=AlgoAmount.from_micro_algo(MIN_TXN_FEE) if reset else None,
+            signer=signer.signer,
+            sender=signer.address,
+        ),
+    ).send()
 
 
 def balance(
@@ -223,53 +236,3 @@ def circulating_supply(client: AnySmartAsaClient, asset_id: int) -> int | None:
     return client.send.get_circulating_supply(
         GetCirculatingSupplyArgs(asset=asset_id)
     ).abi_return
-
-
-def close_out_call(
-    client: SmartAsaClient,
-    asset_id: int,
-    account: SigningAccount,
-    *,
-    close_to: str,
-    fee: AlgoAmount | None = None,
-) -> SmartAsaComposer:
-    """A group with the `asset_close_out` call only: the ASA close-out must follow."""
-    return client.new_group().close_out.asset_close_out(
-        AssetCloseOutArgs(close_asset=asset_id, close_to=close_to),
-        params=CommonAppCallParams(
-            static_fee=fee, signer=account.signer, sender=account.address
-        ),
-    )
-
-
-def asa_close_out_txn(
-    client: SmartAsaClient,
-    asset_id: int,
-    sender: SigningAccount,
-    **overrides: object,
-) -> Transaction:
-    """The Controlled ASA close-out expected after `asset_close_out`, as overridden."""
-    fields: dict[str, object] = {
-        "asset_id": asset_id,
-        "receiver": client.app_address,
-        "amount": 0,
-        "close_asset_to": client.app_address,
-    } | overrides
-    return client.algorand.create_transaction.asset_transfer(
-        AssetTransferParams(sender=sender.address, **fields)  # type: ignore[arg-type]
-    )
-
-
-def close_out(
-    client: SmartAsaClient,
-    asset_id: int,
-    account: SigningAccount,
-    *,
-    close_to: str,
-    fee: AlgoAmount | None = None,
-) -> None:
-    composer = close_out_call(client, asset_id, account, close_to=close_to, fee=fee)
-    composer.add_transaction(
-        asa_close_out_txn(client, asset_id, account), signer=account.signer
-    )
-    composer.send()
