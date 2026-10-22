@@ -1,13 +1,29 @@
 # ARC-20 Reference Implementation
 
 This is the reference implementation of Smart ASA based on the [ARC-20 specification](https://dev.algorand.co/arc-standards/arc-0020/).
+Where the specification leaves room, it is stricter (e.g., the metadata hash must be
+32 bytes, and `default_frozen` is set on creation only).
+
+> ⚠️ This reference implementation has not been audited: review and test it before
+> using it in production.
 
 The implementation offers:
 
 - A basic [Smart ASA](#smart-asa);
 
 - A [Smart ASA with ASA Metadata Registry integration](#smart-asa-with-asa-metadata-registry-integration)
-(**RECOMMENDED**).
+(**RECOMMENDED**);
+
+- An [example extension](#extending-regular-transfers) with custom regular transfer checks.
+
+| Path                                | Content                                                       |
+|:------------------------------------|:--------------------------------------------------------------|
+| `smart_contracts/smart_asa/`        | Smart ASA: contract, configuration, deployment script         |
+| `smart_contracts/arc89_smart_asa/`  | Smart ASA with ASA Metadata Registry integration              |
+| `smart_contracts/capped_smart_asa/` | Example extension (not deployed)                              |
+| `smart_contracts/errors.py`         | ARC-65 error codes                                            |
+| `smart_contracts/artifacts/`        | Compiled TEAL, ARC-56 App Specs and typed Python clients      |
+| `tests/`                            | Tests, a folder per contract                                  |
 
 The reference implementation:
 
@@ -245,6 +261,46 @@ with `[Freeze: pay 0.0157 ALGO to the App, Freeze: account_freeze]`, and resets 
 `[Freeze: account_freeze]`, whose fee also covers the refund (0 ALGO for an account
 without a box). In a batch, each freeze follows its own deposit (identical deposits need
 distinct notes).
+
+## Extending Regular Transfers
+
+Extensions can add checks to regular transfers, keeping all the rules above: override
+`_regular_transfer_hook` in a subclass of either Smart ASA Application. It runs only on
+regular transfers (not on mints, burns or clawbacks), after the built-in checks, so it
+can only reject more transfers. Holders can't bypass it: Controlled ASA holdings are
+frozen, so every transfer between holders is a regular `asset_transfer`. The reference
+implementation adds no checks, at no program cost.
+
+For example, the [Capped Smart ASA](smart_contracts/capped_smart_asa/contract.py) caps
+the holdings that regular transfers can reach (see its
+[tests](tests/capped_smart_asa/test_regular_transfer_hook.py)):
+
+```python
+class CappedSmartAsa(SmartAsa, state_totals=...):  # Same schema as the Smart ASA
+    def _regular_transfer_hook(
+        self, *, asset_sender: Account, asset_receiver: Account, asset_amount: UInt64
+    ) -> None:
+        holding, _holds = op.AssetHoldingGet.asset_balance(
+            asset_receiver, self.smart_asa_id
+        )
+        logged_assert(
+            holding + asset_amount <= capped_cfg.MAX_HOLDING,
+            capped_err.HOLDING_CAP_EXCEEDED,
+        )
+```
+
+When writing a hook:
+
+- Override only the hook, not `asset_transfer` or the `_assert_*` methods, and call
+  `super()._regular_transfer_hook(...)` to chain hooks;
+- Fail with `logged_assert` and new ARC-65 codes, distinct from the reference ones;
+- Handle transfers of `0` units, also between non-holders (e.g., read holdings with
+  `AssetHoldingGet`, which doesn't fail on non-holders);
+- Keep custom state in boxes, so the state schema (checked on creation) doesn't change.
+  New boxes need their own MBR funding: the Smart ASA Application spare ALGO is the
+  Manager's;
+- Calls reading more boxes, accounts or Applications need their references (AlgoKit
+  clients populate them by simulation), and heavy checks may need more opcode budget.
 
 ## Errors
 

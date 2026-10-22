@@ -22,6 +22,10 @@ from smart_contracts.artifacts.arc89_smart_asa.arc89_smart_asa_client import (
     Arc89SmartAsaClient,
     Arc89SmartAsaComposer,
 )
+from smart_contracts.artifacts.capped_smart_asa.capped_smart_asa_client import (
+    CappedSmartAsaClient,
+    CappedSmartAsaComposer,
+)
 from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     AccountFreezeArgs,
     AssetFreezeArgs,
@@ -31,9 +35,9 @@ from smart_contracts.artifacts.smart_asa.smart_asa_client import (
     SmartAsaComposer,
 )
 
-# The generated clients share the ABI argument layouts, so the helpers accept both
-AnySmartAsaClient = SmartAsaClient | Arc89SmartAsaClient
-AnySmartAsaComposer = SmartAsaComposer | Arc89SmartAsaComposer
+# The generated clients share the ABI argument layouts, so the helpers accept all
+AnySmartAsaClient = SmartAsaClient | Arc89SmartAsaClient | CappedSmartAsaClient
+AnySmartAsaComposer = SmartAsaComposer | Arc89SmartAsaComposer | CappedSmartAsaComposer
 
 INITIAL_FUNDS: Final[AlgoAmount] = AlgoAmount.from_algo(100)
 

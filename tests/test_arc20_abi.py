@@ -30,7 +30,11 @@ def _signature(method: dict) -> str:
 
 @pytest.mark.parametrize(
     "app_spec",
-    ["smart_asa/SmartAsa.arc56.json", "arc89_smart_asa/Arc89SmartAsa.arc56.json"],
+    [
+        "smart_asa/SmartAsa.arc56.json",
+        "arc89_smart_asa/Arc89SmartAsa.arc56.json",
+        "capped_smart_asa/CappedSmartAsa.arc56.json",  # Extensions keep the ARC-20 ABI
+    ],
 )
 def test_arc20_method_signatures(app_spec: str) -> None:
     spec = json.loads((ARTIFACTS / app_spec).read_text())
