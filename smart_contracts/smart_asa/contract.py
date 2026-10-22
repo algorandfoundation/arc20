@@ -1,12 +1,12 @@
 from algopy import (
     Account,
     Asset,
+    BoxMap,
     Bytes,
     Global,
-    LocalState,
-    OnCompleteAction,
     StateTotals,
     String,
+    TransactionType,
     Txn,
     UInt64,
     arc4,
@@ -21,6 +21,7 @@ from smart_contracts.avm_library import (
     inner_asset_destroy,
     inner_asset_transfer,
     inner_close_account,
+    inner_payment,
 )
 from smart_contracts.avm_types import AssetConfig
 
@@ -68,9 +69,11 @@ class SmartAsa(
         self.smart_asa_id = UInt64()
         self.global_frozen = False
 
-        # LOCAL STATE
-        # Smart ASA Fields
-        self.account_frozen = LocalState(bool)
+        # BOXES
+        # Accounts not in the default freeze state: empty boxes (MBR paid by the App)
+        self.freeze_exceptions = BoxMap(
+            Account, Bytes, key_prefix=cfg.FREEZE_EXCEPTION_KEY_PREFIX
+        )
 
     def _circulating_supply(self, ctrl_asset: Asset) -> UInt64:
         return cfg.TOTAL - ctrl_asset.balance(Global.current_application_address)
@@ -79,9 +82,19 @@ class SmartAsa(
         logged_assert(self.smart_asa_id != 0, err.MISSING_CTRL_ASA)
         logged_assert(self.smart_asa_id == asset.id, err.INVALID_CTRL_ASA)
 
-    def _assert_opted_in(self, account: Account) -> None:
+    def _is_frozen(self, account: Account) -> bool:
+        # A box flips the default freeze state of its account
+        return self.default_frozen != (account in self.freeze_exceptions)
+
+    def _assert_box_deposit(self, *, box_mbr: UInt64) -> None:
+        # A payment of at least the box MBR to the App just before this call, by anyone
+        logged_assert(Txn.group_index > 0, err.BOX_MBR_UNFUNDED)
+        deposit = gtxn.Transaction(Txn.group_index - 1)
         logged_assert(
-            account.is_opted_in(Global.current_application_id), err.NOT_OPTED_IN
+            deposit.type == TransactionType.Payment
+            and deposit.receiver == Global.current_application_address
+            and deposit.amount >= box_mbr,
+            err.BOX_MBR_UNFUNDED,
         )
 
     def _assert_minting_preconditions(
@@ -98,10 +111,9 @@ class SmartAsa(
             <= self.total,
             err.OVER_MINT,
         )
-        self._assert_opted_in(asset_receiver)
         logged_assert(not self.global_frozen, err.GLOBAL_FROZEN)
         self._assert_reserve_not_frozen()
-        logged_assert(not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN)
+        logged_assert(not self._is_frozen(asset_receiver), err.RECEIVER_FROZEN)
 
     def _assert_burning_preconditions(self, *, asset_sender: Account) -> None:
         # Burn permission restricted to Reserve.
@@ -112,60 +124,16 @@ class SmartAsa(
         self._assert_reserve_not_frozen()
 
     def _assert_reserve_not_frozen(self) -> None:
-        # The Reserve obeys account freezes, even if it is also the Clawback. Fail-closed:
-        # a Reserve without App Local State can't mint nor burn.
-        self._assert_opted_in(self.reserve_addr)
-        logged_assert(not self.account_frozen[self.reserve_addr], err.RESERVE_FROZEN)
-
-    def _assert_clawback_preconditions(self, *, asset_receiver: Account) -> None:
-        # As for native ASA, the clawed back holder needs no App Local State (e.g. after
-        # a ClearState). The receiver does, so clawed back units always have a frozen flag.
-        self._assert_opted_in(asset_receiver)
+        # The Reserve obeys account freezes, even if it is also the Clawback
+        logged_assert(not self._is_frozen(self.reserve_addr), err.RESERVE_FROZEN)
 
     def _assert_regular_transfer_preconditions(
         self, *, asset_sender: Account, asset_receiver: Account
     ) -> None:
         logged_assert(Txn.sender == asset_sender, err.UNAUTHORIZED_CLAWBACK)
-        self._assert_transfer_allowed(
-            asset_sender=asset_sender, asset_receiver=asset_receiver
-        )
-
-    def _assert_transfer_allowed(
-        self, *, asset_sender: Account, asset_receiver: Account
-    ) -> None:
-        # Holder-to-holder policy, shared by regular transfers and close-outs to an account
-        self._assert_opted_in(asset_sender)
-        self._assert_opted_in(asset_receiver)
         logged_assert(not self.global_frozen, err.GLOBAL_FROZEN)
-        logged_assert(not self.account_frozen[asset_sender], err.SENDER_FROZEN)
-        logged_assert(not self.account_frozen[asset_receiver], err.RECEIVER_FROZEN)
-
-    def _assert_close_out_preconditions(self, close_asset: Asset) -> None:
-        asa_close_out_relative_idx = Txn.group_index + 1
-        logged_assert(
-            Txn.on_completion == OnCompleteAction.CloseOut, err.WRONG_ON_COMPLETE
-        )
-        self._assert_common_preconditions(close_asset)
-        logged_assert(
-            Global.group_size > asa_close_out_relative_idx,
-            err.INVALID_CLOSE_OUT_GROUP_SIZE,
-        )
-        # The typed group transaction asserts its type (Asset Transfer)
-        asa_close_out_txn = gtxn.AssetTransferTransaction(asa_close_out_relative_idx)
-        logged_assert(
-            asa_close_out_txn.xfer_asset.id == close_asset.id, err.CLOSE_OUT_WRONG_ASA
-        )
-        logged_assert(
-            asa_close_out_txn.sender == Txn.sender, err.CLOSE_OUT_WRONG_SENDER
-        )
-        logged_assert(
-            asa_close_out_txn.asset_amount == UInt64(0), err.CLOSE_OUT_WRONG_AMOUNT
-        )
-        # The Controlled ASA holding closes to its Creator (the Smart ASA App)
-        logged_assert(
-            asa_close_out_txn.asset_close_to == Global.current_application_address,
-            err.CLOSE_OUT_WRONG_CLOSE_TO,
-        )
+        logged_assert(not self._is_frozen(asset_sender), err.SENDER_FROZEN)
+        logged_assert(not self._is_frozen(asset_receiver), err.RECEIVER_FROZEN)
 
     def _assert_valid_metadata_hash(self, metadata_hash: Bytes) -> None:
         # Non-normative: stricter than ARC-20, which allows any `byte[]` length
@@ -179,7 +147,6 @@ class SmartAsa(
         *,
         total: UInt64,
         decimals: UInt64,
-        default_frozen: bool,
         unit_name: String,
         name: String,
         url: String,
@@ -191,7 +158,6 @@ class SmartAsa(
     ) -> None:
         self.total = total
         self.decimals = decimals
-        self.default_frozen = default_frozen
         self.unit_name = unit_name
         self.name = name
         self.url = url
@@ -256,11 +222,11 @@ class SmartAsa(
             clawback=Global.current_application_address,
         )
 
-        # Configure Smart ASA
+        # Configure Smart ASA (`default_frozen` is set on creation only)
+        self.default_frozen = default_frozen
         self._configure_smart_asa(
             total=total,
             decimals=decimals.as_uint64(),
-            default_frozen=default_frozen,
             unit_name=unit_name,
             name=name,
             url=url,
@@ -272,53 +238,6 @@ class SmartAsa(
         )
 
         return self.smart_asa_id
-
-    @arc4.abimethod(allow_actions=["OptIn"])
-    def asset_opt_in(
-        self, *, asset: Asset, ctrl_asa_opt_in: gtxn.AssetTransferTransaction
-    ) -> None:
-        """
-        Smart ASA opt in (App and Controlled ASA)
-
-        Args:
-            asset: Smart ASA ID
-            ctrl_asa_opt_in: Controlled ASA opt in transaction
-        """
-        # Preconditions
-        self._assert_common_preconditions(asset)
-        logged_assert(
-            ctrl_asa_opt_in.xfer_asset.id == self.smart_asa_id, err.OPT_IN_WRONG_ASA
-        )
-        logged_assert(ctrl_asa_opt_in.sender == Txn.sender, err.OPT_IN_WRONG_SENDER)
-        logged_assert(
-            ctrl_asa_opt_in.asset_sender == Global.zero_address,
-            err.OPT_IN_WRONG_ASSET_SENDER,
-        )  # Pedant: only the Smart ASA App can clawback
-        logged_assert(
-            ctrl_asa_opt_in.asset_receiver == Txn.sender, err.OPT_IN_WRONG_RECEIVER
-        )
-        logged_assert(
-            ctrl_asa_opt_in.asset_amount == 0, err.OPT_IN_WRONG_AMOUNT
-        )  # Pedant: Controlled ASA is default frozen
-        logged_assert(
-            ctrl_asa_opt_in.asset_close_to == Global.zero_address,
-            err.OPT_IN_WRONG_CLOSE_TO,
-        )
-        logged_assert(
-            Txn.on_completion == OnCompleteAction.OptIn, err.WRONG_ON_COMPLETE
-        )
-        logged_assert(
-            Txn.sender.is_opted_in(asset), err.MISSING_CTRL_ASA
-        )  # Pedant: ctrl_asa_opt_in is checked properly
-
-        # Local State Init
-        self.account_frozen[Txn.sender] = False
-
-        # Effects
-        if (
-            self.default_frozen or asset.balance(Txn.sender) > 0
-        ):  # Prevent close-out circumventing account frozen state
-            self.account_frozen[Txn.sender] = True
 
     @arc4.abimethod(resource_encoding="index")
     def asset_config(
@@ -344,7 +263,7 @@ class SmartAsa(
             config_asset: Smart ASA ID to configure
             total: Total number of base units of the Smart ASA. It can not be less than current circulating supply
             decimals: The number of digits to use after the decimal point when displaying the Smart ASA
-            default_frozen: Smart ASA default frozen (True to freeze holdings by default)
+            default_frozen: Ignored, as for native ASA (set on creation only)
             unit_name: The name of a unit of Smart ASA
             name: The name of the Smart ASA
             url: Smart ASA external URL
@@ -364,9 +283,6 @@ class SmartAsa(
             )
         if freeze_addr.native != self.freeze_addr:
             logged_assert(self.freeze_addr != Global.zero_address, err.DISABLED_FREEZE)
-        if default_frozen != self.default_frozen:
-            # A disabled Freeze leaves the freeze settings as they are
-            logged_assert(self.freeze_addr != Global.zero_address, err.DISABLED_FREEZE)
         if clawback_addr.native != self.clawback_addr:
             logged_assert(
                 self.clawback_addr != Global.zero_address, err.DISABLED_CLAWBACK
@@ -379,7 +295,6 @@ class SmartAsa(
         self._configure_smart_asa(
             total=total,
             decimals=decimals.as_uint64(),
-            default_frozen=default_frozen,
             unit_name=unit_name,
             name=name,
             url=url,
@@ -417,7 +332,7 @@ class SmartAsa(
         elif asset_receiver == Global.current_application_address:
             self._assert_burning_preconditions(asset_sender=asset_sender)
         elif Txn.sender == self.clawback_addr:
-            self._assert_clawback_preconditions(asset_receiver=asset_receiver)
+            pass  # The Clawback ignores freezes
         else:
             self._assert_regular_transfer_preconditions(
                 asset_sender=asset_sender, asset_receiver=asset_receiver
@@ -461,37 +376,21 @@ class SmartAsa(
         """
         # Preconditions
         self._assert_common_preconditions(freeze_asset)
-        self._assert_opted_in(freeze_account)
         logged_assert(Txn.sender == self.freeze_addr, err.UNAUTHORIZED_FREEZE)
 
         # Effects
-        self.account_frozen[freeze_account] = asset_frozen
-
-    @arc4.abimethod(allow_actions=["CloseOut"])
-    def asset_close_out(self, *, close_asset: Asset, close_to: Account) -> None:
-        """
-        Smart ASA close out (App and Controlled ASA)
-
-        Args:
-            close_asset: Smart ASA ID to close out
-            close_to: Account to send all the Smart ASA remainder to.
-        """
-        # Preconditions
-        self._assert_close_out_preconditions(close_asset)
-        # Closing out to the Creator needs no inner transfer: the Controlled ASA
-        # close-out that follows moves the whole balance, even if frozen.
-        if close_to != Global.current_application_address:
-            self._assert_transfer_allowed(
-                asset_sender=Txn.sender, asset_receiver=close_to
-            )
-
-            # Effects
-            inner_asset_transfer(
-                xfer_asset=close_asset,
-                asset_amount=close_asset.balance(Txn.sender),
-                asset_sender=Txn.sender,
-                asset_receiver=close_to,
-            )
+        # Only the exceptions to the default freeze state have a box, deposited by
+        # anyone on creation and refunded to Freeze on deletion
+        app = Global.current_application_address
+        min_balance = app.min_balance
+        if asset_frozen == self.default_frozen:
+            # box_del doesn't fail: an account without a box gets a 0 refund
+            del self.freeze_exceptions[freeze_account]
+            inner_payment(receiver=Txn.sender, amount=min_balance - app.min_balance)
+        else:
+            created = self.freeze_exceptions.box(key=freeze_account).create(size=0)
+            if created:
+                self._assert_box_deposit(box_mbr=app.min_balance - min_balance)
 
     @arc4.abimethod(allow_actions=["DeleteApplication"], resource_encoding="index")
     def asset_destroy(self, *, destroy_asset: Asset) -> None:
@@ -504,11 +403,30 @@ class SmartAsa(
         # Preconditions
         self._assert_common_preconditions(destroy_asset)
         logged_assert(Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER)
+        logged_assert(
+            self._circulating_supply(destroy_asset) == 0, err.UNITS_IN_CIRCULATION
+        )
+        # Deleting the App with boxes left would orphan them, locking their MBR
+        logged_assert(
+            Global.current_application_address.total_boxes == 0, err.FREEZE_BOXES_LEFT
+        )
 
         # Effects
         inner_asset_destroy(destroy_asset=destroy_asset)
         # The App is deleted with this call: close its account to the Manager
         inner_close_account(close_remainder_to=Txn.sender)
+
+    @arc4.abimethod
+    def withdraw_excess_algo(self) -> None:
+        """
+        Withdraw the App ALGO above its MBR to the Manager (non-normative)
+        """
+        # Preconditions
+        logged_assert(Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER)
+
+        # Effects
+        app = Global.current_application_address
+        inner_payment(receiver=Txn.sender, amount=app.balance - app.min_balance)
 
     @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_asset_config(self, *, asset: Asset) -> AssetConfig:
@@ -568,16 +486,13 @@ class SmartAsa(
             freeze_account: Account to check
 
         Returns:
-            Smart ASA account frozen status (True if the account is not opted in)
+            Smart ASA account frozen status
         """
         # Preconditions
         self._assert_common_preconditions(freeze_asset)
 
         # Effects
-        # A missing frozen flag counts as frozen (ARC-20 Security Considerations)
-        if not freeze_account.is_opted_in(Global.current_application_id):
-            return True
-        return self.account_frozen[freeze_account]
+        return self._is_frozen(freeze_account)
 
     @arc4.abimethod(readonly=True, resource_encoding="index")
     def get_circulating_supply(self, *, asset: Asset) -> UInt64:

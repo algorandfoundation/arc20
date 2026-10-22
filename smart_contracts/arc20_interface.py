@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from algopy import Account, ARC4Contract, Asset, Bytes, String, UInt64, arc4, gtxn
+from algopy import Account, ARC4Contract, Asset, Bytes, String, UInt64, arc4
 
 from .avm_types import AssetConfig
 
@@ -27,13 +27,6 @@ class Arc20Interface(ARC4Contract, ABC):
         freeze_addr: Account,
         clawback_addr: Account,
     ) -> UInt64:
-        pass
-
-    @abstractmethod
-    @arc4.abimethod(allow_actions=["OptIn"])
-    def asset_opt_in(
-        self, *, asset: Asset, ctrl_asa_opt_in: gtxn.AssetTransferTransaction
-    ) -> None:
         pass
 
     @abstractmethod
@@ -78,11 +71,6 @@ class Arc20Interface(ARC4Contract, ABC):
     def account_freeze(
         self, *, freeze_asset: Asset, freeze_account: Account, asset_frozen: bool
     ) -> None:
-        pass
-
-    @abstractmethod
-    @arc4.abimethod(allow_actions=["CloseOut"])
-    def asset_close_out(self, *, close_asset: Asset, close_to: Account) -> None:
         pass
 
     @abstractmethod
