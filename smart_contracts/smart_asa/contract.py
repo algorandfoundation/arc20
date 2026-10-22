@@ -135,6 +135,14 @@ class SmartAsa(
         logged_assert(not self._is_frozen(asset_sender), err.SENDER_FROZEN)
         logged_assert(not self._is_frozen(asset_receiver), err.RECEIVER_FROZEN)
 
+    def _regular_transfer_hook(
+        self, *, asset_sender: Account, asset_receiver: Account, asset_amount: UInt64
+    ) -> None:
+        """
+        Extension point for subclasses: custom checks on regular transfers, run after the
+        built-in ones. The reference implementation adds none (no program cost).
+        """
+
     def _assert_valid_metadata_hash(self, metadata_hash: Bytes) -> None:
         # Non-normative: stricter than ARC-20, which allows any `byte[]` length
         logged_assert(
@@ -336,6 +344,11 @@ class SmartAsa(
         else:
             self._assert_regular_transfer_preconditions(
                 asset_sender=asset_sender, asset_receiver=asset_receiver
+            )
+            self._regular_transfer_hook(
+                asset_sender=asset_sender,
+                asset_receiver=asset_receiver,
+                asset_amount=asset_amount,
             )
 
         # Effects
