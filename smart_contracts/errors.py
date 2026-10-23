@@ -70,25 +70,25 @@ RECEIVER_FROZEN: LiteralString = "receiverFrozen"
 RESERVE_FROZEN: LiteralString = "reserveFrozen"
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-# Invalid total, it must not be lower than the circulating supply
+# Invalid total, it must not be lower than the issued supply
 INVALID_TOTAL: LiteralString = "totalInvalid"
 
 # Invalid metadata hash, it must be 32 bytes
 INVALID_METADATA_HASH_LENGTH: LiteralString = "metadataHashInvalid"
 
 # ── Transfers ─────────────────────────────────────────────────────────────────
-# Minting to the Smart ASA Application is forbidden
-SELF_MINT: LiteralString = "selfMint"
+# Issuing to the Smart ASA Application is forbidden
+SELF_ISSUE: LiteralString = "selfIssue"
 
-# Minting above the total is forbidden
-OVER_MINT: LiteralString = "overMint"
+# Issuing above the total is forbidden
+OVER_ISSUE: LiteralString = "overIssue"
 
-# Burning units of another holder is forbidden
-CLAWBACK_BURN: LiteralString = "clawbackBurn"
+# Redeeming units of another holder is forbidden (claw them back first)
+CLAWBACK_REDEEM: LiteralString = "clawbackRedeem"
 
 # ── Destroy ───────────────────────────────────────────────────────────────────
-# Units are still in circulation: return them to the Smart ASA Application first
-UNITS_IN_CIRCULATION: LiteralString = "unitsInCirculation"
+# Units are still issued: return them to the Smart ASA Application first
+UNITS_ISSUED: LiteralString = "unitsIssued"
 
 # Account freeze boxes are left: reset the accounts to the default freeze state first
 FREEZE_BOXES_LEFT: LiteralString = "freezeBoxesLeft"
