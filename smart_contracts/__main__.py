@@ -1,6 +1,7 @@
 import dataclasses
 import importlib
 import logging
+import re
 import subprocess
 import sys
 from collections.abc import Callable
@@ -85,9 +86,10 @@ def _get_output_path(output_dir: Path, deployment_extension: str) -> Path:
     )
 
 
-def build(output_dir: Path, contract_path: Path) -> Path:
+def build(output_dir: Path, contract_path: Path, *, avm_client: bool = True) -> Path:
     """
-    Builds the contract by exporting (compiling) its source and generating a client.
+    Builds the contract by exporting (compiling) its source and generating a client,
+    and an AVM client (on-chain) if `avm_client`.
     If the output directory already exists, it is cleared.
     """
     output_dir = output_dir.resolve()
@@ -151,12 +153,44 @@ def build(output_dir: Path, contract_path: Path) -> Path:
                     raise Exception(
                         f"Could not generate typed client:\n{generate_result.stdout}"
                     )
+
+        # Generate Python AVM Clients (on-chain)
+        for file_name in app_spec_file_names if avm_client else []:
+            logger.info(f"Generating AVM Client (on-chain) for {file_name}")
+            puyapy_result = subprocess.run(
+                [
+                    "puyapy-clientgen",
+                    str(output_dir / file_name),
+                    "--out-dir",
+                    str(output_dir),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            if puyapy_result.returncode:
+                raise Exception(
+                    f"Could not generate client with puyapy-clientgen:\n{puyapy_result.stdout}"
+                )
+
+            # Apply naming convention: {contract_name}_avm_client.py
+            contract_name = file_name.removesuffix(".arc56.json")
+            generated_file = output_dir / f"client_{contract_name}.py"
+            snake_case_name = re.sub(r"(?<!^)(?=[A-Z])", "_", contract_name).lower()
+            if not generated_file.exists():
+                raise FileNotFoundError(
+                    f"Expected generated AVM client '{generated_file.name}' was not created by puyapy-clientgen"
+                )
+            generated_file.rename(output_dir / f"{snake_case_name}_avm_client.py")
     if client_file:
         return output_dir / client_file
     return output_dir
 
 
 # --------------------------- Main Logic --------------------------- #
+
+# Example extensions are not meant to be called on-chain: no AVM client
+NO_AVM_CLIENT = {"capped_smart_asa"}
 
 
 def main(action: str, contract_name: str | None = None) -> None:
@@ -173,7 +207,11 @@ def main(action: str, contract_name: str | None = None) -> None:
         case "build":
             for contract in filtered_contracts:
                 logger.info(f"Building app at {contract.path}")
-                build(artifact_path / contract.name, contract.path)
+                build(
+                    artifact_path / contract.name,
+                    contract.path,
+                    avm_client=contract.name not in NO_AVM_CLIENT,
+                )
         case "deploy":
             for contract in filtered_contracts:
                 output_dir = artifact_path / contract.name
@@ -193,7 +231,11 @@ def main(action: str, contract_name: str | None = None) -> None:
         case "all":
             for contract in filtered_contracts:
                 logger.info(f"Building app at {contract.path}")
-                build(artifact_path / contract.name, contract.path)
+                build(
+                    artifact_path / contract.name,
+                    contract.path,
+                    avm_client=contract.name not in NO_AVM_CLIENT,
+                )
                 if contract.deploy:
                     logger.info(f"Deploying {contract.name}")
                     contract.deploy()
