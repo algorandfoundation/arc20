@@ -33,7 +33,9 @@ test = { commands = [
   'poetry run pytest',
 ], description = 'Run smart contract tests' }
 audit = { commands = [
-  'poetry run pip-audit',
+  # virtualenv (dev only, via pre-commit) can't reach the fixes: they need packaging>=26.3,
+  # while puyapy 5.10.1 requires packaging<25. Drop these ignores once puyapy allows it.
+  'poetry run pip-audit --ignore-vuln CVE-2026-113725 --ignore-vuln CVE-2026-113722',
 ], description = 'Audit with pip-audit' }
 lint = { commands = [
   'poetry run black --check --diff .',
