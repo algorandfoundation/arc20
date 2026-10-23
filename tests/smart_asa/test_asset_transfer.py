@@ -16,7 +16,7 @@ from tests.support import (
     add_transfer,
     balance,
     circulating_supply,
-    claw_back_and_burn,
+    claw_back_and_redeem,
     global_freeze,
     transfer,
 )
@@ -25,7 +25,7 @@ from tests.support import (
 ASA_MISSING = "missing from"
 
 
-class TestMint:
+class TestIssue:
     def test_pass_as_reserve(
         self,
         min_fee_2x: AlgoAmount,
@@ -82,7 +82,7 @@ class TestMint:
         reserve_and_clawback: SigningAccount,
         receiver: SigningAccount,
     ) -> None:
-        # Roles compose: minting follows the Reserve rules, even for the Clawback
+        # Roles compose: issuing follows the Reserve rules, even for the Clawback
         with pytest.raises(LogicError, match=err.RECEIVER_FROZEN):
             transfer(
                 smart_asa_client,
@@ -103,7 +103,7 @@ class TestMint:
         reserve_and_clawback: SigningAccount,
         receiver: SigningAccount,
     ) -> None:
-        # Mint to itself as Reserve, then move to the frozen account as Clawback
+        # Issue to itself as Reserve, then move to the frozen account as Clawback
         group = add_transfer(
             smart_asa_client.new_group(),
             smart_asa_id,
@@ -235,13 +235,13 @@ class TestMint:
                 asset_amount=1,
             )
 
-    def test_fail_self_minting(
+    def test_fail_self_issuing(
         self,
         reserve: SigningAccount,
         smart_asa_client: SmartAsaClient,
         smart_asa_id: int,
     ) -> None:
-        with pytest.raises(LogicError, match=err.SELF_MINT):
+        with pytest.raises(LogicError, match=err.SELF_ISSUE):
             transfer(
                 smart_asa_client,
                 smart_asa_id,
@@ -251,7 +251,7 @@ class TestMint:
                 asset_amount=1,
             )
 
-    def test_fail_over_minting(
+    def test_fail_over_issuing(
         self,
         reserve: SigningAccount,
         asa_config: SmartASAConfig,
@@ -259,7 +259,7 @@ class TestMint:
         smart_asa_id: int,
         receiver: SigningAccount,
     ) -> None:
-        with pytest.raises(LogicError, match=err.OVER_MINT):
+        with pytest.raises(LogicError, match=err.OVER_ISSUE):
             transfer(
                 smart_asa_client,
                 smart_asa_id,
@@ -270,7 +270,7 @@ class TestMint:
             )
 
 
-class TestBurn:
+class TestRedeem:
     def test_pass_as_reserve(
         self,
         min_fee_2x: AlgoAmount,
@@ -304,8 +304,8 @@ class TestBurn:
         reserve_and_clawback: SigningAccount,
         account_with_supply: SigningAccount,
     ) -> None:
-        # Roles compose: burning follows the Reserve rules, even for the Clawback
-        with pytest.raises(LogicError, match=err.CLAWBACK_BURN):
+        # Roles compose: redeeming follows the Reserve rules, even for the Clawback
+        with pytest.raises(LogicError, match=err.CLAWBACK_REDEEM):
             transfer(
                 smart_asa_client,
                 smart_asa_id,
@@ -325,11 +325,11 @@ class TestBurn:
         reserve_and_clawback: SigningAccount,
         account_with_supply: SigningAccount,
     ) -> None:
-        # Forced redemption of a frozen holder: claw back, then burn, in one group
+        # Forced redemption of a frozen holder: claw back, then redeem, in one group
         account_freeze(
             smart_asa_client, smart_asa_id, freeze, account_with_supply.address
         )
-        claw_back_and_burn(
+        claw_back_and_redeem(
             smart_asa_client,
             smart_asa_id,
             signer=reserve_and_clawback,
@@ -411,14 +411,14 @@ class TestBurn:
                 asset_amount=1,
             )
 
-    def test_fail_clawback_burn(
+    def test_fail_clawback_redeem(
         self,
         smart_asa_client: SmartAsaClient,
         smart_asa_id: int,
         reserve: SigningAccount,
         account_with_supply: SigningAccount,
     ) -> None:
-        with pytest.raises(LogicError, match=err.CLAWBACK_BURN):
+        with pytest.raises(LogicError, match=err.CLAWBACK_REDEEM):
             transfer(
                 smart_asa_client,
                 smart_asa_id,

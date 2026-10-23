@@ -151,7 +151,7 @@ def test_fail_invalid_total(
     smart_asa_id: int,
     manager: SigningAccount,
     asa_config: SmartASAConfig,
-    account_with_supply: SigningAccount,  # Mints the whole total
+    account_with_supply: SigningAccount,  # Issues the whole total
 ) -> None:
     asa_config.total -= 1  # Below the circulating supply
     with pytest.raises(LogicError, match=re.escape(err.INVALID_TOTAL)):
@@ -208,7 +208,7 @@ def test_pass_soulbound(
             asset_amount=1,
         )
 
-    # Issuance: the Reserve (approved before) mints to itself, the Clawback delivers
+    # Issuance: the Reserve (approved before) issues to itself, the Clawback delivers
     transfer(
         smart_asa_client,
         smart_asa_id,

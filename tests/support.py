@@ -143,7 +143,7 @@ def transfer(
     ).send()
 
 
-def claw_back_and_burn(
+def claw_back_and_redeem(
     client: AnySmartAsaClient,
     asset_id: int,
     *,

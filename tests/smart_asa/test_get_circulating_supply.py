@@ -10,11 +10,12 @@ def test_pass_no_circulating_supply(
     assert circulating_supply(smart_asa_client, smart_asa_id) == 0
 
 
-def test_pass_circulating_supply(
+def test_pass_reserve_holdings_circulate(
     smart_asa_client: SmartAsaClient,
     smart_asa_id: int,
     reserve_with_supply: SigningAccount,
 ) -> None:
+    # The basic Smart ASA circulating supply is the issued supply, Reserve included
     assert circulating_supply(smart_asa_client, smart_asa_id) == balance(
         smart_asa_client, smart_asa_id, reserve_with_supply
     )

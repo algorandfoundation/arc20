@@ -73,7 +73,7 @@ def holder(
     capped_client: CappedSmartAsaClient,
     capped_asa_id: int,
 ) -> SigningAccount:
-    # Minted above the cap: mints never reach the hook
+    # Issued above the cap: issuing never reaches the hook
     account = funded_account(algorand)
     opt_in(capped_client, capped_asa_id, account)
     transfer(

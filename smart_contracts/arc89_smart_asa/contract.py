@@ -11,6 +11,7 @@ from algopy import (
     arc4,
     gtxn,
     logged_assert,
+    op,
     subroutine,
     urange,
 )
@@ -111,6 +112,21 @@ class Arc89SmartAsa(
             freeze=Global.current_application_address,
             clawback=Global.current_application_address,
         )
+
+    def _circulating_supply(self, ctrl_asset: Asset) -> UInt64:
+        # ARC-62 refinement: units held by the Reserve (e.g., a treasury) are issued,
+        # but not circulating
+        issued = self._issued_supply(ctrl_asset)
+        reserve = self.reserve_addr
+        if (
+            reserve == Global.zero_address
+            or reserve == Global.current_application_address
+        ):
+            return issued
+        reserve_balance, _opted_in = op.AssetHoldingGet.asset_balance(
+            reserve, ctrl_asset
+        )
+        return issued - reserve_balance
 
     @arc4.abimethod(readonly=True)
     def arc62_get_circulating_supply(self, asset_id: UInt64) -> UInt64:

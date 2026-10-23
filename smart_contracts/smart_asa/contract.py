@@ -75,8 +75,16 @@ class SmartAsa(
             Account, Bytes, key_prefix=cfg.FREEZE_EXCEPTION_KEY_PREFIX
         )
 
-    def _circulating_supply(self, ctrl_asset: Asset) -> UInt64:
+    def _issued_supply(self, ctrl_asset: Asset) -> UInt64:
+        # The App holds the units not issued yet: the total caps the issued ones
         return cfg.TOTAL - ctrl_asset.balance(Global.current_application_address)
+
+    def _circulating_supply(self, ctrl_asset: Asset) -> UInt64:
+        """
+        Extension point for subclasses: the circulating supply, the issued supply by
+        default. Every circulating supply getter returns it, so they always agree.
+        """
+        return self._issued_supply(ctrl_asset)
 
     def _assert_common_preconditions(self, asset: Asset) -> None:
         logged_assert(self.smart_asa_id != 0, err.MISSING_CTRL_ASA)
@@ -97,30 +105,29 @@ class SmartAsa(
             err.BOX_MBR_UNFUNDED,
         )
 
-    def _assert_minting_preconditions(
+    def _assert_issuing_preconditions(
         self, *, asset_receiver: Account, asset_amount: UInt64
     ) -> None:
-        # Mint permission restricted to Reserve.
+        # Issue permission restricted to Reserve.
         logged_assert(Txn.sender == self.reserve_addr, err.UNAUTHORIZED_RESERVE)
-        # Forbidden self-mint (to Creator) and over-mint (> total).
+        # Forbidden self-issue (to Creator) and over-issue (> total).
         logged_assert(
-            asset_receiver != Global.current_application_address, err.SELF_MINT
+            asset_receiver != Global.current_application_address, err.SELF_ISSUE
         )
         logged_assert(
-            asset_amount + self._circulating_supply(Asset(self.smart_asa_id))
-            <= self.total,
-            err.OVER_MINT,
+            asset_amount + self._issued_supply(Asset(self.smart_asa_id)) <= self.total,
+            err.OVER_ISSUE,
         )
         logged_assert(not self.global_frozen, err.GLOBAL_FROZEN)
         self._assert_reserve_not_frozen()
         logged_assert(not self._is_frozen(asset_receiver), err.RECEIVER_FROZEN)
 
-    def _assert_burning_preconditions(self, *, asset_sender: Account) -> None:
-        # Burn permission restricted to Reserve.
+    def _assert_redeeming_preconditions(self, *, asset_sender: Account) -> None:
+        # Redeem permission restricted to Reserve.
         logged_assert(Txn.sender == self.reserve_addr, err.UNAUTHORIZED_RESERVE)
         logged_assert(not self.global_frozen, err.GLOBAL_FROZEN)
-        # Forbidden clawback through burning (burned amount not from Reserve).
-        logged_assert(asset_sender == self.reserve_addr, err.CLAWBACK_BURN)
+        # Forbidden clawback through redeeming (redeemed amount not from Reserve).
+        logged_assert(asset_sender == self.reserve_addr, err.CLAWBACK_REDEEM)
         self._assert_reserve_not_frozen()
 
     def _assert_reserve_not_frozen(self) -> None:
@@ -203,7 +210,7 @@ class SmartAsa(
             url: Smart ASA external URL
             metadata_hash: Smart ASA metadata hash
             manager_addr: Account that can manage the configuration of the Smart ASA and destroy it
-            reserve_addr: Account that holds the reserve (non-minted) units of Smart ASA and can mint or burn it
+            reserve_addr: Account that can issue and redeem units of the Smart ASA
             freeze_addr: Account that can freeze/unfreeze holdings of the Smart ASA globally or locally
             clawback_addr: Account that can clawback holdings of the Smart ASA
 
@@ -277,7 +284,7 @@ class SmartAsa(
             url: Smart ASA external URL
             metadata_hash: Smart ASA metadata hash
             manager_addr: Account that can manage the configuration of the Smart ASA and destroy it
-            reserve_addr: Account that holds the reserve (non-minted) units of Smart ASA and can mint or burn it
+            reserve_addr: Account that can issue and redeem units of the Smart ASA
             freeze_addr: Account that can freeze/unfreeze holdings of the Smart ASA globally or locally
             clawback_addr: Account that can clawback holdings of the Smart ASA
         """
@@ -295,9 +302,7 @@ class SmartAsa(
             logged_assert(
                 self.clawback_addr != Global.zero_address, err.DISABLED_CLAWBACK
             )
-        logged_assert(
-            total >= self._circulating_supply(config_asset), err.INVALID_TOTAL
-        )
+        logged_assert(total >= self._issued_supply(config_asset), err.INVALID_TOTAL)
 
         # Configure Smart ASA
         self._configure_smart_asa(
@@ -323,7 +328,7 @@ class SmartAsa(
         asset_receiver: Account,
     ) -> None:
         """
-        Smart ASA transfers: regular, clawback, mint, burn
+        Smart ASA transfers: regular, clawback, issue, redeem
 
         Args:
             xfer_asset: Smart ASA ID to transfer
@@ -334,11 +339,11 @@ class SmartAsa(
         # Preconditions
         self._assert_common_preconditions(xfer_asset)
         if asset_sender == Global.current_application_address:
-            self._assert_minting_preconditions(
+            self._assert_issuing_preconditions(
                 asset_receiver=asset_receiver, asset_amount=asset_amount
             )
         elif asset_receiver == Global.current_application_address:
-            self._assert_burning_preconditions(asset_sender=asset_sender)
+            self._assert_redeeming_preconditions(asset_sender=asset_sender)
         elif Txn.sender == self.clawback_addr:
             pass  # The Clawback ignores freezes
         else:
@@ -416,9 +421,7 @@ class SmartAsa(
         # Preconditions
         self._assert_common_preconditions(destroy_asset)
         logged_assert(Txn.sender == self.manager_addr, err.UNAUTHORIZED_MANAGER)
-        logged_assert(
-            self._circulating_supply(destroy_asset) == 0, err.UNITS_IN_CIRCULATION
-        )
+        logged_assert(self._issued_supply(destroy_asset) == 0, err.UNITS_ISSUED)
         # Deleting the App with boxes left would orphan them, locking their MBR
         logged_assert(
             Global.current_application_address.total_boxes == 0, err.FREEZE_BOXES_LEFT
