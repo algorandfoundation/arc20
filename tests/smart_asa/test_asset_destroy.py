@@ -96,14 +96,14 @@ def test_fail_unauthorized_manager(
         )
 
 
-def test_fail_still_in_circulation(
+def test_fail_units_issued(
     min_fee_2x: AlgoAmount,
     smart_asa_client: SmartAsaClient,
     smart_asa_id: int,
     manager: SigningAccount,
     account_with_supply: SigningAccount,  # To have circulating supply
 ) -> None:
-    with pytest.raises(LogicError, match=err.UNITS_IN_CIRCULATION):
+    with pytest.raises(LogicError, match=err.UNITS_ISSUED):
         smart_asa_client.send.delete.asset_destroy(
             AssetDestroyArgs(destroy_asset=smart_asa_id),
             params=CommonAppCallParams(

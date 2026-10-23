@@ -94,8 +94,8 @@ def test_pass_other_paths_skip_hook(
     clawback: SigningAccount,
     holder: SigningAccount,
 ) -> None:
-    # Minted above the cap (see the `holder` fixture), clawed back above the cap, and
-    # burned from the Reserve: the hook only runs on regular transfers
+    # Issued above the cap (see the `holder` fixture), clawed back above the cap, and
+    # redeemed by the Reserve: the hook only runs on regular transfers
     assert balance(capped_client, capped_asa_id, holder) == 2 * CAP
     transfer(
         capped_client,

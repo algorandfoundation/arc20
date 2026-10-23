@@ -80,7 +80,7 @@ def smart_asa_client(
         AssetCreateArgs(**asa_config.dictify()),
         params=CommonAppCallParams(static_fee=min_fee_2x),
     )
-    # The Reserve mints and burns only if opted in and not frozen (approved by Freeze
+    # The Reserve issues and redeems only if opted in and not frozen (approved by Freeze
     # if the Smart ASA is default frozen)
     smart_asa_id = client.state.global_state.smart_asa_id
     opt_in(client, smart_asa_id, reserve)
