@@ -22,7 +22,7 @@ The implementation offers:
 | `smart_contracts/arc89_smart_asa/`  | Smart ASA with ASA Metadata Registry integration              |
 | `smart_contracts/capped_smart_asa/` | Example extension (not deployed)                              |
 | `smart_contracts/errors.py`         | ARC-65 error codes                                            |
-| `smart_contracts/artifacts/`        | Compiled TEAL, ARC-56 App Specs and typed Python clients      |
+| `smart_contracts/artifacts/`        | Compiled TEAL, ARC-56 App Specs, typed Python and AVM clients |
 | `tests/`                            | Tests, a folder per contract                                  |
 
 The reference implementation:
